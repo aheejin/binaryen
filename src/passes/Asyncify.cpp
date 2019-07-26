@@ -20,7 +20,7 @@
 // an async manner, for example, you can do a blocking wait, and that will
 // be turned into code that unwinds the stack at the "blocking" operation,
 // then is able to rewind it back up when the actual async operation
-// comples, the so the code appears to have been running synchronously
+// completes, so the code appears to have been running synchronously
 // all the while. Use cases for this include coroutines, python generators,
 // etc.
 //
@@ -49,12 +49,11 @@
 //    for obvious reasons, while Emterpreter-Async proved it is tolerable to
 //    have *some* overhead, if the transform can be applied selectively.
 //
-// The specific transform implemented here is nicknamed "Bysyncify" (as it is
-// in BinarYen, and "B" comes after "A"). It is simpler than old Asyncify but
-// has low overhead when properly optimized. Old Asyncify worked at the CFG
-// level and added branches there; new Asyncify on the other hand works on the
-// structured control flow of wasm and simply "skips over" code when rewinding
-// the stack, and jumps out when unwinding. The transformed code looks
+// This new Asyncify transformation implemented here is simpler than old
+// Asyncify but has low overhead when properly optimized. Old Asyncify worked at
+// the CFG level and added branches there; new Asyncify on the other hand works
+// on the structured control flow of wasm and simply "skips over" code when
+// rewinding the stack, and jumps out when unwinding. The transformed code looks
 // conceptually like this:
 //
 //   void foo(int x) {
@@ -107,9 +106,9 @@
 // contains a pointer to a data structure with the info needed to rewind
 // and unwind:
 //
-//   {                                            // offsets
-//     i32  - current asyncify stack location    //  0
-//     i32  - asyncify stack end                 //  4
+//   {                                           // offsets
+//     i32  - current asyncify stack location    // 0
+//     i32  - asyncify stack end                 // 4
 //   }
 //
 // The asyncify stack is a representation of the call frame, as a list of
@@ -186,7 +185,7 @@
 // unwinding/rewinding finishes, and not at the specific spot where the
 // stack end was exceeded.
 //
-// By default this pass is very carefuly: it assumes that any import and
+// By default this pass is very carefully: it assumes that any import and
 // any indirect call may start an unwind/rewind operation. If you know more
 // specific information you can inform asyncify about that, which can reduce
 // a great deal of overhead, as it can instrument less code. The relevant
