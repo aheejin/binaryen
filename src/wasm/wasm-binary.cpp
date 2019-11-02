@@ -298,7 +298,7 @@ void WasmBinaryWriter::writeImports() {
     }
     writeImportHeader(&wasm->table);
     o << U32LEB(int32_t(ExternalKind::Table));
-    o << S32LEB(BinaryConsts::EncodedType::AnyFunc);
+    o << S32LEB(BinaryConsts::EncodedType::funcref);
     writeResizableLimits(wasm->table.initial,
                          wasm->table.max,
                          wasm->table.hasMax(),
@@ -515,7 +515,7 @@ void WasmBinaryWriter::writeFunctionTableDeclaration() {
   }
   auto start = startSection(BinaryConsts::Section::Table);
   o << U32LEB(1); // Declare 1 table.
-  o << S32LEB(BinaryConsts::EncodedType::AnyFunc);
+  o << S32LEB(BinaryConsts::EncodedType::funcref);
   writeResizableLimits(wasm->table.initial,
                        wasm->table.max,
                        wasm->table.hasMax(),
@@ -1127,8 +1127,12 @@ Type WasmBinaryBuilder::getType() {
       return f64;
     case BinaryConsts::EncodedType::v128:
       return v128;
+    case BinaryConsts::EncodedType::funcref:
+      return funcref;
     case BinaryConsts::EncodedType::anyref:
       return anyref;
+    case BinaryConsts::EncodedType::nullref:
+      return nullref;
     case BinaryConsts::EncodedType::exnref:
       return exnref;
     default: { throwError("invalid wasm type: " + std::to_string(type)); }
@@ -1359,8 +1363,8 @@ void WasmBinaryBuilder::readImports() {
         wasm.table.name = Name(std::string("timport$") + std::to_string(i));
         auto elementType = getS32LEB();
         WASM_UNUSED(elementType);
-        if (elementType != BinaryConsts::EncodedType::AnyFunc) {
-          throwError("Imported table type is not AnyFunc");
+        if (elementType != BinaryConsts::EncodedType::funcref) {
+          throwError("Imported table type is not funcref");
         }
         wasm.table.exists = true;
         bool is_shared;
@@ -1953,11 +1957,16 @@ void WasmBinaryBuilder::processFunctions() {
     wasm.addExport(curr);
   }
 
-  for (auto& iter : functionCalls) {
+  for (auto& iter : functionRefs) {
     size_t index = iter.first;
-    auto& calls = iter.second;
-    for (auto* call : calls) {
-      call->target = getFunctionName(index);
+    auto& refs = iter.second;
+    for (auto* ref : refs) {
+      if (auto* call = ref->dynCast<Call>()) {
+        call->target = getFunctionName(index);
+      }
+      if (auto* refFunc = ref->dynCast<RefFunc>()) {
+        refFunc->func = getFunctionName(index);
+      }
     }
   }
 
@@ -2026,8 +2035,8 @@ void WasmBinaryBuilder::readFunctionTableDeclaration() {
   }
   wasm.table.exists = true;
   auto elemType = getS32LEB();
-  if (elemType != BinaryConsts::EncodedType::AnyFunc) {
-    throwError("ElementType must be AnyFunc in MVP");
+  if (elemType != BinaryConsts::EncodedType::funcref) {
+    throwError("ElementType must be funcref in MVP");
   }
   bool is_shared;
   getResizableLimits(
@@ -2288,7 +2297,8 @@ BinaryConsts::ASTNodes WasmBinaryBuilder::readExpression(Expression*& curr) {
       visitGlobalSet((curr = allocator.alloc<GlobalSet>())->cast<GlobalSet>());
       break;
     case BinaryConsts::Select:
-      visitSelect((curr = allocator.alloc<Select>())->cast<Select>());
+    case BinaryConsts::SelectWithType:
+      visitSelect((curr = allocator.alloc<Select>())->cast<Select>(), code);
       break;
     case BinaryConsts::Return:
       visitReturn((curr = allocator.alloc<Return>())->cast<Return>());
@@ -2307,6 +2317,15 @@ BinaryConsts::ASTNodes WasmBinaryBuilder::readExpression(Expression*& curr) {
     case BinaryConsts::Else:
     case BinaryConsts::Catch:
       curr = nullptr;
+      break;
+    case BinaryConsts::RefNull:
+      visitRefNull((curr = allocator.alloc<RefNull>())->cast<RefNull>());
+      break;
+    case BinaryConsts::RefIsNull:
+      visitRefIsNull((curr = allocator.alloc<RefIsNull>())->cast<RefIsNull>());
+      break;
+    case BinaryConsts::RefFunc:
+      visitRefFunc((curr = allocator.alloc<RefFunc>())->cast<RefFunc>());
       break;
     case BinaryConsts::Try:
       visitTry((curr = allocator.alloc<Try>())->cast<Try>());
@@ -2699,7 +2718,7 @@ void WasmBinaryBuilder::visitCall(Call* curr) {
     curr->operands[num - i - 1] = popNonVoidExpression();
   }
   curr->type = type->result;
-  functionCalls[index].push_back(curr); // we don't know function names yet
+  functionRefs[index].push_back(curr); // we don't know function names yet
   curr->finalize();
 }
 
@@ -4541,14 +4560,22 @@ bool WasmBinaryBuilder::maybeVisitSIMDLoad(Expression*& out, uint32_t code) {
   return true;
 }
 
-void WasmBinaryBuilder::visitSelect(Select* curr) {
+void WasmBinaryBuilder::visitSelect(Select* curr, uint8_t code) {
   if (debug) {
-    std::cerr << "zz node: Select" << std::endl;
+    std::cerr << "zz node: Select, code " << int32_t(code) << std::endl;
+  }
+  if (code == BinaryConsts::SelectWithType) {
+    getU32LEB(); // # of return types, which is always 1 for now
+    curr->type = getType();
   }
   curr->condition = popNonVoidExpression();
   curr->ifFalse = popNonVoidExpression();
   curr->ifTrue = popNonVoidExpression();
-  curr->finalize();
+  if (code == BinaryConsts::SelectWithType) {
+    curr->finalize(curr->type);
+  } else {
+    curr->finalize();
+  }
 }
 
 void WasmBinaryBuilder::visitReturn(Return* curr) {
@@ -4609,6 +4636,33 @@ void WasmBinaryBuilder::visitDrop(Drop* curr) {
     std::cerr << "zz node: Drop" << std::endl;
   }
   curr->value = popNonVoidExpression();
+  curr->finalize();
+}
+
+void WasmBinaryBuilder::visitRefNull(RefNull* curr) {
+  if (debug) {
+    std::cerr << "zz node: RefNull" << std::endl;
+  }
+  curr->finalize();
+}
+
+void WasmBinaryBuilder::visitRefIsNull(RefIsNull* curr) {
+  if (debug) {
+    std::cerr << "zz node: RefIsNull" << std::endl;
+  }
+  curr->anyref = popNonVoidExpression();
+  curr->finalize();
+}
+
+void WasmBinaryBuilder::visitRefFunc(RefFunc* curr) {
+  if (debug) {
+    std::cerr << "zz node: RefFunc" << std::endl;
+  }
+  auto index = getU32LEB();
+  if (index >= functionImports.size() + functionTypes.size()) {
+    throwError("ref.func: invalid call index");
+  }
+  functionRefs[index].push_back(curr); // we don't know function names yet
   curr->finalize();
 }
 

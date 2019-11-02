@@ -81,6 +81,8 @@ struct ExpressionAnalyzer {
   static HashType hash(Expression* curr);
 };
 
+void refinalizeAndAvoidNullref(Expression* curr);
+
 // Re-Finalizes all node types. This can be run after code was modified in
 // various ways that require propagating types around, and it does such an
 // "incremental" update. This is done under the assumption that there is
@@ -146,6 +148,9 @@ struct ReFinalize
   void visitDrop(Drop* curr);
   void visitReturn(Return* curr);
   void visitHost(Host* curr);
+  void visitRefNull(RefNull* curr);
+  void visitRefIsNull(RefIsNull* curr);
+  void visitRefFunc(RefFunc* curr);
   void visitTry(Try* curr);
   void visitThrow(Throw* curr);
   void visitRethrow(Rethrow* curr);
@@ -176,9 +181,9 @@ private:
 // Re-finalize a single node. This is slow, if you want to refinalize
 // an entire ast, use ReFinalize
 struct ReFinalizeNode : public OverriddenVisitor<ReFinalizeNode> {
-  void visitBlock(Block* curr) { curr->finalize(); }
-  void visitIf(If* curr) { curr->finalize(); }
-  void visitLoop(Loop* curr) { curr->finalize(); }
+  void visitBlock(Block* curr) { refinalizeAndAvoidNullref(curr); }
+  void visitIf(If* curr) { refinalizeAndAvoidNullref(curr); }
+  void visitLoop(Loop* curr) { refinalizeAndAvoidNullref(curr); }
   void visitBreak(Break* curr) { curr->finalize(); }
   void visitSwitch(Switch* curr) { curr->finalize(); }
   void visitCall(Call* curr) { curr->finalize(); }
@@ -207,11 +212,14 @@ struct ReFinalizeNode : public OverriddenVisitor<ReFinalizeNode> {
   void visitConst(Const* curr) { curr->finalize(); }
   void visitUnary(Unary* curr) { curr->finalize(); }
   void visitBinary(Binary* curr) { curr->finalize(); }
-  void visitSelect(Select* curr) { curr->finalize(); }
+  void visitSelect(Select* curr) { refinalizeAndAvoidNullref(curr); }
   void visitDrop(Drop* curr) { curr->finalize(); }
   void visitReturn(Return* curr) { curr->finalize(); }
   void visitHost(Host* curr) { curr->finalize(); }
-  void visitTry(Try* curr) { curr->finalize(); }
+  void visitRefNull(RefNull* curr) { curr->finalize(); }
+  void visitRefIsNull(RefIsNull* curr) { curr->finalize(); }
+  void visitRefFunc(RefFunc* curr) { curr->finalize(); }
+  void visitTry(Try* curr) { refinalizeAndAvoidNullref(curr); }
   void visitThrow(Throw* curr) { curr->finalize(); }
   void visitRethrow(Rethrow* curr) { curr->finalize(); }
   void visitBrOnExn(BrOnExn* curr) { curr->finalize(); }

@@ -431,29 +431,14 @@
   (nop)
  )
  (func $1 (; 1 ;) (type $FUNCSIG$v)
-  (local $0 i32)
-  (local $0$hi i32)
   (local $i64toi32_i32$0 i32)
   (block
-   (block
-    (local.set $0
-     (block (result i32)
-      (local.set $i64toi32_i32$0
-       (global.get $f$hi)
-      )
-      (global.get $f)
-     )
-    )
-    (local.set $0$hi
-     (local.get $i64toi32_i32$0)
-    )
-   )
    (call $call
     (block (result i32)
      (local.set $i64toi32_i32$0
-      (local.get $0$hi)
+      (global.get $f$hi)
      )
-     (local.get $0)
+     (global.get $f)
     )
     (local.get $i64toi32_i32$0)
    )
@@ -527,29 +512,14 @@
   (nop)
  )
  (func $1 (; 1 ;) (type $FUNCSIG$v)
-  (local $0 i32)
-  (local $0$hi i32)
   (local $i64toi32_i32$0 i32)
   (block
-   (block
-    (local.set $0
-     (block (result i32)
-      (local.set $i64toi32_i32$0
-       (global.get $f$hi)
-      )
-      (global.get $f)
-     )
-    )
-    (local.set $0$hi
-     (local.get $i64toi32_i32$0)
-    )
-   )
    (call $call
     (block (result i32)
      (local.set $i64toi32_i32$0
-      (local.get $0$hi)
+      (global.get $f$hi)
      )
-     (local.get $0)
+     (global.get $f)
     )
     (local.get $i64toi32_i32$0)
    )

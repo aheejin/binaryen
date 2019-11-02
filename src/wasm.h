@@ -529,6 +529,9 @@ public:
     MemoryFillId,
     PushId,
     PopId,
+    RefNullId,
+    RefIsNullId,
+    RefFuncId,
     TryId,
     ThrowId,
     RethrowId,
@@ -562,6 +565,18 @@ public:
   template<class T> const T* cast() const {
     assert(int(_id) == int(T::SpecificId));
     return (const T*)this;
+  }
+
+  bool isConstExpression() const {
+    switch (_id) {
+      case ConstId:
+      case GlobalGetId:
+      case RefNullId:
+      case RefFuncId:
+        return true;
+      default:
+        return false;
+    }
   }
 };
 
@@ -1021,6 +1036,7 @@ public:
   Expression* condition;
 
   void finalize();
+  void finalize(Type type_);
 };
 
 class Drop : public SpecificExpression<Expression::DropId> {
@@ -1081,6 +1097,32 @@ class Pop : public SpecificExpression<Expression::PopId> {
 public:
   Pop() = default;
   Pop(MixedArena& allocator) {}
+};
+
+class RefNull : public SpecificExpression<Expression::RefNullId> {
+public:
+  RefNull() = default;
+  RefNull(MixedArena& allocator) {}
+
+  void finalize();
+};
+
+class RefIsNull : public SpecificExpression<Expression::RefIsNullId> {
+public:
+  RefIsNull(MixedArena& allocator) {}
+
+  Expression* anyref;
+
+  void finalize();
+};
+
+class RefFunc : public SpecificExpression<Expression::RefFuncId> {
+public:
+  RefFunc(MixedArena& allocator) {}
+
+  Name func;
+
+  void finalize();
 };
 
 class Try : public SpecificExpression<Expression::TryId> {

@@ -182,6 +182,7 @@ struct Flatten
           auto type = br->value->type;
           if (type.isConcrete()) {
             // we are sending a value. use a local instead
+            // TODO(aheejin) Add nullref handling
             Index temp = getTempForBreakTarget(br->name, type);
             ourPreludes.push_back(builder.makeLocalSet(temp, br->value));
             if (br->condition) {
@@ -231,7 +232,7 @@ struct Flatten
     // we have changed children
     ReFinalizeNode().visit(curr);
     // move everything to the prelude, if we need to: anything but constants
-    if (!curr->is<Const>()) {
+    if (!curr->isConstExpression()) {
       if (curr->type == unreachable) {
         ourPreludes.push_back(curr);
         replaceCurrent(builder.makeUnreachable());

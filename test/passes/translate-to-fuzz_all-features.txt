@@ -5,26 +5,50 @@
  (type $FUNCSIG$vf (func (param f32)))
  (type $FUNCSIG$vd (func (param f64)))
  (type $FUNCSIG$vV (func (param v128)))
+<<<<<<< HEAD
  (type $FUNCSIG$d (func (result f64)))
  (type $FUNCSIG$v (func))
  (type $FUNCSIG$ji (func (param i32) (result i64)))
  (type $FUNCSIG$ff (func (param f32) (result f32)))
  (type $FUNCSIG$fi (func (param i32) (result f32)))
+=======
+ (type $FUNCSIG$vA (func (param anyref)))
+ (type $FUNCSIG$vF (func (param funcref)))
+ (type $FUNCSIG$vE (func (param exnref)))
+ (type $FUNCSIG$Ad (func (param f64) (result anyref)))
+ (type $FUNCSIG$v (func))
+ (type $FUNCSIG$iiFdf (func (param i32 funcref f64 f32) (result i32)))
+ (type $FUNCSIG$djdVf (func (param i64 f64 v128 f32) (result f64)))
+ (type $FUNCSIG$VEdfAVAE (func (param exnref f64 f32 anyref v128 anyref exnref) (result v128)))
+>>>>>>> Add support for reference types proposal
  (import "fuzzing-support" "log-i32" (func $log-i32 (param i32)))
  (import "fuzzing-support" "log-i64" (func $log-i64 (param i64)))
  (import "fuzzing-support" "log-f32" (func $log-f32 (param f32)))
  (import "fuzzing-support" "log-f64" (func $log-f64 (param f64)))
  (import "fuzzing-support" "log-v128" (func $log-v128 (param v128)))
- (memory $0 (shared 1 1))
+ (import "fuzzing-support" "log-anyref" (func $log-anyref (param anyref)))
+ (import "fuzzing-support" "log-funcref" (func $log-funcref (param funcref)))
+ (import "fuzzing-support" "log-exnref" (func $log-exnref (param exnref)))
+ (memory $0 1 1)
  (data (i32.const 0) "N\0fN\f5\f9\b1\ff\fa\eb\e5\fe\a7\ec\fb\fc\f4\a6\e4\ea\f0\ae\e3")
+<<<<<<< HEAD
  (table $0 4 4 funcref)
  (elem (i32.const 0) $func_11 $func_13 $func_15 $func_15)
+=======
+ (table $0 2 2 funcref)
+ (elem (i32.const 0) $func_14 $func_15)
+>>>>>>> Add support for reference types proposal
  (global $global$0 (mut i32) (i32.const 975663930))
  (global $global$1 (mut i32) (i32.const 2066300474))
  (global $global$2 (mut i64) (i64.const 20510))
  (global $global$3 (mut f32) (f32.const -2147483648))
  (global $global$4 (mut v128) (v128.const i32x4 0x7f002833 0x580000fe 0x59750500 0x01ff002f))
+ (global $global$5 (mut anyref) (ref.null))
+ (global $global$6 (mut funcref) (ref.null))
+ (global $global$7 (mut exnref) (ref.null))
+ (global $global$8 (mut exnref) (ref.null))
  (global $hangLimit (mut i32) (i32.const 10))
+<<<<<<< HEAD
  (event $event$0 (attr 0) (param f64 f32))
  (export "hashMemory" (func $hashMemory))
  (export "memory" (memory $0))
@@ -36,8 +60,23 @@
  (export "func_15" (func $func_15))
  (export "func_16_invoker" (func $func_16_invoker))
  (export "func_18_invoker" (func $func_18_invoker))
+=======
+ (export "hashMemory" (func $hashMemory))
+ (export "memory" (memory $0))
+ (export "func_9" (func $func_9))
+ (export "func_10_invoker" (func $func_10_invoker))
+ (export "func_12_invoker" (func $func_12_invoker))
+ (export "func_15" (func $func_15))
+ (export "func_15_invoker" (func $func_15_invoker))
+ (export "func_17" (func $func_17))
+ (export "func_17_invoker" (func $func_17_invoker))
+ (export "func_19_invoker" (func $func_19_invoker))
+ (export "func_21" (func $func_21))
+ (export "func_21_invoker" (func $func_21_invoker))
+ (export "func_23_invoker" (func $func_23_invoker))
+>>>>>>> Add support for reference types proposal
  (export "hangLimitInitializer" (func $hangLimitInitializer))
- (func $hashMemory (; 5 ;) (type $FUNCSIG$i) (result i32)
+ (func $hashMemory (; 8 ;) (type $FUNCSIG$i) (result i32)
   (local $0 i32)
   (local.set $0
    (i32.const 5381)
@@ -268,13 +307,19 @@
   )
   (local.get $0)
  )
+<<<<<<< HEAD
  (func $func_6 (; 6 ;) (param $0 i64) (param $1 v128) (param $2 i64) (result f64)
+=======
+ (func $func_9 (; 9 ;) (type $FUNCSIG$Ad) (param $0 f64) (result anyref)
+  (local $1 anyref)
+>>>>>>> Add support for reference types proposal
   (block
    (if
     (i32.eqz
      (global.get $hangLimit)
     )
     (return
+<<<<<<< HEAD
      (f64.const -1)
     )
    )
@@ -299,6 +344,9 @@
     )
     (return
      (local.get $2)
+=======
+     (ref.null)
+>>>>>>> Add support for reference types proposal
     )
    )
    (global.set $hangLimit
@@ -308,6 +356,7 @@
     )
    )
   )
+<<<<<<< HEAD
   (block $label$0
    (call $log-i32
     (call $hashMemory)
@@ -330,13 +379,153 @@
   (local $10 i64)
   (local $11 i64)
   (local $12 f64)
+=======
+  (block $label$0 (result anyref)
+   (local.set $1
+    (block $label$1 (result anyref)
+     (if
+      (i32.eqz
+       (i32.const 723742247)
+      )
+      (block $label$2
+       (local.set $0
+        (if (result f64)
+         (if (result i32)
+          (i32.eqz
+           (i32.const 1)
+          )
+          (i32.const 1581531209)
+          (i32.const -127)
+         )
+         (block $label$6 (result f64)
+          (local.set $1
+           (local.tee $1
+            (local.get $1)
+           )
+          )
+          (local.tee $0
+           (loop $label$7 (result f64)
+            (block
+             (if
+              (i32.eqz
+               (global.get $hangLimit)
+              )
+              (return
+               (ref.null)
+              )
+             )
+             (global.set $hangLimit
+              (i32.sub
+               (global.get $hangLimit)
+               (i32.const 1)
+              )
+             )
+            )
+            (block $label$8 (result f64)
+             (if
+              (i32.const 0)
+              (block $label$9
+               (local.set $1
+                (local.tee $1
+                 (ref.null)
+                )
+               )
+               (local.set $1
+                (local.tee $1
+                 (local.get $1)
+                )
+               )
+              )
+              (nop)
+             )
+             (loop $label$11 (result f64)
+              (block
+               (if
+                (i32.eqz
+                 (global.get $hangLimit)
+                )
+                (return
+                 (local.get $1)
+                )
+               )
+               (global.set $hangLimit
+                (i32.sub
+                 (global.get $hangLimit)
+                 (i32.const 1)
+                )
+               )
+              )
+              (block $label$12 (result f64)
+               (local.set $1
+                (local.tee $1
+                 (local.get $1)
+                )
+               )
+               (f64.const -nan:0xfffffffffffe0)
+              )
+             )
+            )
+           )
+          )
+         )
+         (block $label$13
+          (br $label$2)
+         )
+        )
+       )
+       (nop)
+      )
+      (block $label$14
+       (local.set $0
+        (local.tee $0
+         (local.tee $0
+          (local.tee $0
+           (local.tee $0
+            (local.tee $0
+             (local.tee $0
+              (local.tee $0
+               (local.tee $0
+                (local.tee $0
+                 (local.tee $0
+                  (local.tee $0
+                   (f64.const 0)
+                  )
+                 )
+                )
+               )
+              )
+             )
+            )
+           )
+          )
+         )
+        )
+       )
+       (block $label$26
+        (nop)
+        (nop)
+       )
+      )
+     )
+     (local.get $1)
+    )
+   )
+   (local.get $1)
+  )
+ )
+ (func $func_10 (; 10 ;) (param $0 funcref) (param $1 funcref) (param $2 anyref) (param $3 anyref) (param $4 funcref) (param $5 anyref) (result i64)
+>>>>>>> Add support for reference types proposal
   (block
    (if
     (i32.eqz
      (global.get $hangLimit)
     )
     (return
+<<<<<<< HEAD
      (local.get $5)
+=======
+     (i64.const 4398046511104)
+>>>>>>> Add support for reference types proposal
     )
    )
    (global.set $hangLimit
@@ -346,6 +535,7 @@
     )
    )
   )
+<<<<<<< HEAD
   (block $label$0
    (call $log-f32
     (local.get $5)
@@ -364,13 +554,37 @@
   (local $5 f32)
   (local $6 i32)
   (local $7 i64)
+=======
+  (i64.const 4294967296)
+ )
+ (func $func_10_invoker (; 11 ;) (type $FUNCSIG$v)
+  (drop
+   (call $func_10
+    (ref.func $log-f32)
+    (ref.null)
+    (ref.null)
+    (ref.null)
+    (ref.func $log-i64)
+    (ref.null)
+   )
+  )
+ )
+ (func $func_12 (; 12 ;) (result v128)
+  (local $0 funcref)
+  (local $1 anyref)
+  (local $2 exnref)
+>>>>>>> Add support for reference types proposal
   (block
    (if
     (i32.eqz
      (global.get $hangLimit)
     )
     (return
+<<<<<<< HEAD
      (local.get $1)
+=======
+     (v128.const i32x4 0x0a0d1c1f 0x071d1c48 0x0000034d 0x00000000)
+>>>>>>> Add support for reference types proposal
     )
    )
    (global.set $hangLimit
@@ -381,6 +595,7 @@
    )
   )
   (block $label$0
+<<<<<<< HEAD
    (call $log-v128
     (v128.const i32x4 0x77367f7e 0x00000045 0x40000000 0x0000007f)
    )
@@ -408,13 +623,318 @@
   (local $7 f32)
   (local $8 i32)
   (local $9 f64)
+=======
+   (block $label$1
+    (loop $label$2
+     (block
+      (if
+       (i32.eqz
+        (global.get $hangLimit)
+       )
+       (return
+        (v128.const i32x4 0x00005b34 0x342a2f2f 0x00000f5b 0x0e171513)
+       )
+      )
+      (global.set $hangLimit
+       (i32.sub
+        (global.get $hangLimit)
+        (i32.const 1)
+       )
+      )
+     )
+     (block
+      (block $label$3
+       (nop)
+      )
+      (br_if $label$2
+       (i32.eqz
+        (i32.const -536870912)
+       )
+      )
+      (br_if $label$2
+       (i32.eqz
+        (i32.const -32768)
+       )
+      )
+     )
+    )
+    (block $label$4
+     (nop)
+     (if
+      (i32.const 138613770)
+      (local.set $1
+       (local.tee $1
+        (local.tee $1
+         (local.tee $1
+          (ref.null)
+         )
+        )
+       )
+      )
+      (block $label$5
+       (if
+        (loop $label$6 (result i32)
+         (block
+          (if
+           (i32.eqz
+            (global.get $hangLimit)
+           )
+           (return
+            (v128.const i32x4 0xff000000 0x00001000 0x00000001 0x00004611)
+           )
+          )
+          (global.set $hangLimit
+           (i32.sub
+            (global.get $hangLimit)
+            (i32.const 1)
+           )
+          )
+         )
+         (loop $label$7 (result i32)
+          (block
+           (if
+            (i32.eqz
+             (global.get $hangLimit)
+            )
+            (return
+             (v128.const i32x4 0x43434343 0x43434343 0xfff80000 0xffffffff)
+            )
+           )
+           (global.set $hangLimit
+            (i32.sub
+             (global.get $hangLimit)
+             (i32.const 1)
+            )
+           )
+          )
+          (block $label$8 (result i32)
+           (nop)
+           (br_if $label$8
+            (loop $label$9 (result i32)
+             (block
+              (if
+               (i32.eqz
+                (global.get $hangLimit)
+               )
+               (return
+                (v128.const i32x4 0x050300ff 0x00000000 0x00010000 0xffff007f)
+               )
+              )
+              (global.set $hangLimit
+               (i32.sub
+                (global.get $hangLimit)
+                (i32.const 1)
+               )
+              )
+             )
+             (block (result i32)
+              (local.set $1
+               (local.get $1)
+              )
+              (br_if $label$9
+               (i32.const -80)
+              )
+              (i32.const 337253912)
+             )
+            )
+            (i32.eqz
+             (i32.const 96)
+            )
+           )
+          )
+         )
+        )
+        (nop)
+        (block $label$10
+         (local.set $1
+          (ref.null)
+         )
+         (if
+          (i32.eqz
+           (i32.const 0)
+          )
+          (block $label$11
+           (nop)
+           (local.set $2
+            (local.get $2)
+           )
+          )
+          (loop $label$12
+           (block
+            (if
+             (i32.eqz
+              (global.get $hangLimit)
+             )
+             (return
+              (v128.const i32x4 0x4e000000 0x41dddd9f 0x00000000 0x40a00000)
+             )
+            )
+            (global.set $hangLimit
+             (i32.sub
+              (global.get $hangLimit)
+              (i32.const 1)
+             )
+            )
+           )
+           (block $label$13
+            (local.set $2
+             (local.get $2)
+            )
+            (if
+             (i32.const 51777295)
+             (block $label$14
+              (br_if $label$5
+               (i32.eqz
+                (global.get $global$0)
+               )
+              )
+              (loop $label$15
+               (block
+                (if
+                 (i32.eqz
+                  (global.get $hangLimit)
+                 )
+                 (return
+                  (v128.const i32x4 0x1dcf0000 0x56001375 0x000afe08 0x55490b31)
+                 )
+                )
+                (global.set $hangLimit
+                 (i32.sub
+                  (global.get $hangLimit)
+                  (i32.const 1)
+                 )
+                )
+               )
+               (block $label$16
+                (br_if $label$1
+                 (i32.const -2147483647)
+                )
+                (local.set $0
+                 (ref.null)
+                )
+               )
+              )
+             )
+             (block $label$17
+              (local.set $2
+               (local.tee $2
+                (ref.null)
+               )
+              )
+             )
+            )
+           )
+          )
+         )
+        )
+       )
+       (memory.init 0
+        (i32.and
+         (i32.const 2147483647)
+         (i32.const 15)
+        )
+        (i32.const 15)
+        (i32.const 6)
+       )
+      )
+     )
+    )
+   )
+   (nop)
+   (i64.store32 offset=4 align=1
+    (i32.and
+     (i32.const 70)
+     (i32.const 15)
+    )
+    (block $label$18
+     (loop $label$19
+      (block
+       (if
+        (i32.eqz
+         (global.get $hangLimit)
+        )
+        (return
+         (v128.const i32x4 0x0000110e 0x00000000 0x00001e13 0x00000000)
+        )
+       )
+       (global.set $hangLimit
+        (i32.sub
+         (global.get $hangLimit)
+         (i32.const 1)
+        )
+       )
+      )
+      (block $label$20
+       (local.set $1
+        (local.tee $1
+         (local.tee $1
+          (local.tee $1
+           (local.tee $1
+            (local.tee $1
+             (local.get $1)
+            )
+           )
+          )
+         )
+        )
+       )
+       (nop)
+      )
+     )
+     (block $label$21
+      (block $label$22
+       (block $label$23
+        (block $label$24
+         (local.set $2
+          (ref.null)
+         )
+         (local.set $1
+          (local.tee $1
+           (ref.null)
+          )
+         )
+        )
+        (return
+         (v128.const i32x4 0xefe65f1c 0x49000201 0x4f225f1e 0x0018e9f0)
+        )
+       )
+      )
+     )
+    )
+   )
+  )
+ )
+ (func $func_12_invoker (; 13 ;) (type $FUNCSIG$v)
+  (drop
+   (call $func_12)
+  )
+  (call $log-i32
+   (call $hashMemory)
+  )
+  (drop
+   (call $func_12)
+  )
+ )
+ (func $func_14 (; 14 ;) (result f64)
+  (local $0 anyref)
+  (local $1 anyref)
+  (local $2 i64)
+  (local $3 v128)
+  (local $4 anyref)
+  (local $5 f64)
+  (local $6 f32)
+>>>>>>> Add support for reference types proposal
   (block
    (if
     (i32.eqz
      (global.get $hangLimit)
     )
     (return
+<<<<<<< HEAD
      (f32.const 10961.05859375)
+=======
+     (f64.const -1)
+>>>>>>> Add support for reference types proposal
     )
    )
    (global.set $hangLimit
@@ -424,6 +944,7 @@
     )
    )
   )
+<<<<<<< HEAD
   (local.get $7)
  )
  (func $func_11_invoker (; 12 ;) (type $FUNCSIG$v)
@@ -471,13 +992,27 @@
   (local $13 v128)
   (local $14 i32)
   (local $15 v128)
+=======
+  (block $label$0
+   (return
+    (local.get $5)
+   )
+  )
+ )
+ (func $func_15 (; 15 ;) (type $FUNCSIG$iiFdf) (param $0 i32) (param $1 funcref) (param $2 f64) (param $3 f32) (result i32)
+  (local $4 funcref)
+>>>>>>> Add support for reference types proposal
   (block
    (if
     (i32.eqz
      (global.get $hangLimit)
     )
     (return
+<<<<<<< HEAD
      (local.get $12)
+=======
+     (local.get $0)
+>>>>>>> Add support for reference types proposal
     )
    )
    (global.set $hangLimit
@@ -487,6 +1022,7 @@
     )
    )
   )
+<<<<<<< HEAD
   (i64.const 2)
  )
  (func $func_14 (; 14 ;) (type $FUNCSIG$ff) (param $0 f32) (result f32)
@@ -498,13 +1034,36 @@
   (local $6 f32)
   (local $7 f32)
   (local $8 f64)
+=======
+  (local.tee $0
+   (local.get $0)
+  )
+ )
+ (func $func_15_invoker (; 16 ;) (type $FUNCSIG$v)
+  (drop
+   (call $func_15
+    (i32.const 65535)
+    (ref.func $log-f32)
+    (f64.const -0)
+    (f32.const 24)
+   )
+  )
+ )
+ (func $func_17 (; 17 ;) (type $FUNCSIG$djdVf) (param $0 i64) (param $1 f64) (param $2 v128) (param $3 f32) (result f64)
+  (local $4 funcref)
+  (local $5 anyref)
+>>>>>>> Add support for reference types proposal
   (block
    (if
     (i32.eqz
      (global.get $hangLimit)
     )
     (return
+<<<<<<< HEAD
      (f32.const -4294967296)
+=======
+     (f64.const 41)
+>>>>>>> Add support for reference types proposal
     )
    )
    (global.set $hangLimit
@@ -514,6 +1073,7 @@
     )
    )
   )
+<<<<<<< HEAD
   (block $label$0
    (block $label$1
     (local.set $6
@@ -584,11 +1144,25 @@
            )
           )
          )
+=======
+  (block $label$0 (result f64)
+   (call $log-i32
+    (call $hashMemory)
+   )
+   (local.tee $1
+    (local.tee $1
+     (local.tee $1
+      (local.tee $1
+       (local.tee $1
+        (local.tee $1
+         (local.get $1)
+>>>>>>> Add support for reference types proposal
         )
        )
       )
      )
     )
+<<<<<<< HEAD
     (br_if $label$1
      (i32.eqz
       (local.get $5)
@@ -630,13 +1204,37 @@
   (local $0 i32)
   (local $1 i64)
   (local $2 v128)
+=======
+   )
+  )
+ )
+ (func $func_17_invoker (; 18 ;) (type $FUNCSIG$v)
+  (drop
+   (call $func_17
+    (i64.const 2165693858784287514)
+    (f64.const 17179869184)
+    (v128.const i32x4 0xdf800000 0xfffffff9 0xffffff80 0x5f800000)
+    (f32.const -nan:0x7fffca)
+   )
+  )
+  (call $log-i32
+   (call $hashMemory)
+  )
+ )
+ (func $func_19 (; 19 ;) (param $0 i32) (result exnref)
+  (local $1 anyref)
+>>>>>>> Add support for reference types proposal
   (block
    (if
     (i32.eqz
      (global.get $hangLimit)
     )
     (return
+<<<<<<< HEAD
      (i32.const 84558856)
+=======
+     (ref.null)
+>>>>>>> Add support for reference types proposal
     )
    )
    (global.set $hangLimit
@@ -646,6 +1244,7 @@
     )
    )
   )
+<<<<<<< HEAD
   (block $label$0 (result i32)
    (nop)
    (br_if $label$0
@@ -659,11 +1258,31 @@
  (func $func_16_invoker (; 17 ;) (type $FUNCSIG$v)
   (drop
    (call $func_16)
+=======
+  (ref.null)
+ )
+ (func $func_19_invoker (; 20 ;) (type $FUNCSIG$v)
+  (drop
+   (call $func_19
+    (i32.const -8192)
+   )
+  )
+  (drop
+   (call $func_19
+    (i32.const 641212458)
+   )
+  )
+  (drop
+   (call $func_19
+    (i32.const 128)
+   )
+>>>>>>> Add support for reference types proposal
   )
   (call $log-i32
    (call $hashMemory)
   )
   (drop
+<<<<<<< HEAD
    (call $func_16)
   )
  )
@@ -680,13 +1299,25 @@
   (local $9 f64)
   (local $10 v128)
   (local $11 i32)
+=======
+   (call $func_19
+    (i32.const -38)
+   )
+  )
+ )
+ (func $func_21 (; 21 ;) (type $FUNCSIG$VEdfAVAE) (param $0 exnref) (param $1 f64) (param $2 f32) (param $3 anyref) (param $4 v128) (param $5 anyref) (param $6 exnref) (result v128)
+>>>>>>> Add support for reference types proposal
   (block
    (if
     (i32.eqz
      (global.get $hangLimit)
     )
     (return
+<<<<<<< HEAD
      (local.get $10)
+=======
+     (local.get $4)
+>>>>>>> Add support for reference types proposal
     )
    )
    (global.set $hangLimit
@@ -696,6 +1327,7 @@
     )
    )
   )
+<<<<<<< HEAD
   (local.tee $1
    (local.tee $1
     (loop $label$0 (result v128)
@@ -718,11 +1350,48 @@
      (block $label$1 (result v128)
       (nop)
       (local.get $0)
+=======
+  (local.tee $4
+   (loop $label$0
+    (block
+     (if
+      (i32.eqz
+       (global.get $hangLimit)
+      )
+      (return
+       (v128.const i32x4 0x41700000 0x4d633171 0xc7800000 0x4e4e4e4e)
+      )
+     )
+     (global.set $hangLimit
+      (i32.sub
+       (global.get $hangLimit)
+       (i32.const 1)
+      )
+     )
+    )
+    (block $label$1
+     (local.set $3
+      (local.tee $3
+       (local.tee $5
+        (local.tee $3
+         (local.tee $3
+          (local.tee $5
+           (ref.null)
+          )
+         )
+        )
+       )
+      )
+     )
+     (return
+      (local.get $4)
+>>>>>>> Add support for reference types proposal
      )
     )
    )
   )
  )
+<<<<<<< HEAD
  (func $func_18_invoker (; 19 ;) (type $FUNCSIG$v)
   (drop
    (call $func_18)
@@ -735,21 +1404,43 @@
   )
   (drop
    (call $func_18)
+=======
+ (func $func_21_invoker (; 22 ;) (type $FUNCSIG$v)
+  (drop
+   (call $func_21
+    (ref.null)
+    (f64.const -4294967296)
+    (f32.const 72057594037927936)
+    (ref.null)
+    (v128.const i32x4 0x651900ff 0x7ffe2a5a 0x38010008 0x00554c1f)
+    (ref.null)
+    (ref.null)
+   )
+>>>>>>> Add support for reference types proposal
   )
   (call $log-i32
    (call $hashMemory)
   )
  )
+<<<<<<< HEAD
  (func $func_20 (; 20 ;) (param $0 i64) (param $1 f32) (param $2 i32) (param $3 i32) (result v128)
   (local $4 i64)
   (local $5 f64)
+=======
+ (func $func_23 (; 23 ;) (param $0 anyref) (result funcref)
+  (local $1 v128)
+>>>>>>> Add support for reference types proposal
   (block
    (if
     (i32.eqz
      (global.get $hangLimit)
     )
     (return
+<<<<<<< HEAD
      (v128.const i32x4 0x4e000000 0x4f000000 0x45821000 0x7f7fffff)
+=======
+     (ref.func $log-f64)
+>>>>>>> Add support for reference types proposal
     )
    )
    (global.set $hangLimit
@@ -759,6 +1450,7 @@
     )
    )
   )
+<<<<<<< HEAD
   (block $label$0 (result v128)
    (local.set $1
     (local.get $1)
@@ -767,6 +1459,85 @@
   )
  )
  (func $hangLimitInitializer (; 21 ;)
+=======
+  (ref.func $func_17_invoker)
+ )
+ (func $func_23_invoker (; 24 ;) (type $FUNCSIG$v)
+  (drop
+   (call $func_23
+    (ref.null)
+   )
+  )
+  (call $log-i32
+   (call $hashMemory)
+  )
+ )
+ (func $func_25 (; 25 ;) (param $0 exnref) (result v128)
+  (local $1 i64)
+  (local $2 exnref)
+  (local $3 v128)
+  (local $4 exnref)
+  (local $5 f32)
+  (local $6 funcref)
+  (local $7 f32)
+  (local $8 exnref)
+  (local $9 f64)
+  (local $10 f32)
+  (local $11 i64)
+  (local $12 f32)
+  (local $13 f32)
+  (local $14 v128)
+  (block
+   (if
+    (i32.eqz
+     (global.get $hangLimit)
+    )
+    (return
+     (v128.const i32x4 0x05050505 0x46190000 0xc6800000 0x4a031a19)
+    )
+   )
+   (global.set $hangLimit
+    (i32.sub
+     (global.get $hangLimit)
+     (i32.const 1)
+    )
+   )
+  )
+  (if (result v128)
+   (i32.eqz
+    (loop $label$0 (result i32)
+     (block
+      (if
+       (i32.eqz
+        (global.get $hangLimit)
+       )
+       (return
+        (v128.const i32x4 0x0000ff44 0xbf00bd00 0x1d00b544 0x0b7ffe00)
+       )
+      )
+      (global.set $hangLimit
+       (i32.sub
+        (global.get $hangLimit)
+        (i32.const 1)
+       )
+      )
+     )
+     (i32.const -134217728)
+    )
+   )
+   (block $label$6
+    (nop)
+    (return
+     (v128.const i32x4 0x4eaca8bf 0xda000000 0x48800000 0xffffffe9)
+    )
+   )
+   (block $label$7 (result v128)
+    (local.get $3)
+   )
+  )
+ )
+ (func $hangLimitInitializer (; 26 ;)
+>>>>>>> Add support for reference types proposal
   (global.set $hangLimit
    (i32.const 10)
   )

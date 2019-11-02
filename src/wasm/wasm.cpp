@@ -173,13 +173,19 @@ const char* getExpressionName(Expression* curr) {
       return "push";
     case Expression::Id::PopId:
       return "pop";
-    case Expression::TryId:
+    case Expression::Id::RefNullId:
+      return "ref.null";
+    case Expression::Id::RefIsNullId:
+      return "ref.is_null";
+    case Expression::Id::RefFuncId:
+      return "ref.func";
+    case Expression::Id::TryId:
       return "try";
-    case Expression::ThrowId:
+    case Expression::Id::ThrowId:
       return "throw";
-    case Expression::RethrowId:
+    case Expression::Id::RethrowId:
       return "rethrow";
-    case Expression::BrOnExnId:
+    case Expression::Id::BrOnExnId:
       return "br_on_exn";
     case Expression::Id::NumExpressionIds:
       WASM_UNREACHABLE();
@@ -260,8 +266,7 @@ static Type mergeTypes(std::vector<Type>& types) {
         if (type == unreachable) {
           type = other;
         } else if (type != other) {
-          // poison value, we saw multiple types; this should not be consumed
-          type = none;
+          type = getLeastCommonSuperType(type, other);
         }
       }
     }
@@ -372,7 +377,7 @@ void If::finalize() {
     } else if (ifFalse->type.isConcrete() && ifTrue->type == unreachable) {
       type = ifFalse->type;
     } else {
-      type = none;
+      type = getLeastCommonSuperType(ifTrue->type, ifFalse->type);
     }
   } else {
     type = none; // if without else
@@ -856,13 +861,15 @@ void Binary::finalize() {
   }
 }
 
+void Select::finalize(Type type_) { type = type_; }
+
 void Select::finalize() {
   assert(ifTrue && ifFalse);
   if (ifTrue->type == unreachable || ifFalse->type == unreachable ||
       condition->type == unreachable) {
     type = unreachable;
   } else {
-    type = ifTrue->type;
+    type = getLeastCommonSuperType(ifTrue->type, ifFalse->type);
   }
 }
 
@@ -892,6 +899,12 @@ void Host::finalize() {
   }
 }
 
+void RefNull::finalize() { type = nullref; }
+
+void RefIsNull::finalize() { type = i32; }
+
+void RefFunc::finalize() { type = funcref; }
+
 void Try::finalize() {
   if (body->type == catchBody->type) {
     type = body->type;
@@ -900,7 +913,7 @@ void Try::finalize() {
   } else if (catchBody->type.isConcrete() && body->type == unreachable) {
     type = catchBody->type;
   } else {
-    type = none;
+    type = getLeastCommonSuperType(body->type, catchBody->type);
   }
 }
 

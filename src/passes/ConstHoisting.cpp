@@ -91,9 +91,12 @@ private:
         size = getTypeSize(value.type);
         break;
       }
-      case v128:     // v128 not implemented yet
-      case anyref:   // anyref cannot have literals
-      case exnref: { // exnref cannot have literals
+      case v128: // v128 not implemented yet
+      // reference types cannot have literals
+      case funcref:
+      case anyref:
+      case nullref:
+      case exnref: {
         return false;
       }
       case none:

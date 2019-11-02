@@ -57,6 +57,7 @@ Name get_i32("get_i32");
 Name get_i64("get_i64");
 Name get_f32("get_f32");
 Name get_f64("get_f64");
+Name get_funcref("get_funcref");
 Name get_anyref("get_anyref");
 Name get_exnref("get_exnref");
 
@@ -64,6 +65,7 @@ Name set_i32("set_i32");
 Name set_i64("set_i64");
 Name set_f32("set_f32");
 Name set_f64("set_f64");
+Name set_funcref("set_funcref");
 Name set_anyref("set_anyref");
 Name set_exnref("set_exnref");
 
@@ -85,14 +87,17 @@ struct InstrumentLocals : public WalkerPass<PostWalker<InstrumentLocals>> {
         break;
       case v128:
         assert(false && "v128 not implemented yet");
+      case funcref:
+        import = get_funcref;
+        break;
       case anyref:
         import = get_anyref;
         break;
       case exnref:
         import = get_exnref;
         break;
+      case nullref: // nullref is not representable in binary format
       case none:
-        WASM_UNREACHABLE();
       case unreachable:
         WASM_UNREACHABLE();
     }
@@ -128,6 +133,9 @@ struct InstrumentLocals : public WalkerPass<PostWalker<InstrumentLocals>> {
         break;
       case v128:
         assert(false && "v128 not implemented yet");
+      case funcref:
+        import = set_funcref;
+        break;
       case anyref:
         import = set_anyref;
         break;
@@ -136,6 +144,7 @@ struct InstrumentLocals : public WalkerPass<PostWalker<InstrumentLocals>> {
         break;
       case unreachable:
         return; // nothing to do here
+      case nullref: // nullref is not representable in binary format
       case none:
         WASM_UNREACHABLE();
     }
@@ -158,12 +167,14 @@ struct InstrumentLocals : public WalkerPass<PostWalker<InstrumentLocals>> {
     addImport(curr, set_f64, "diid");
 
     if (curr->features.hasReferenceTypes()) {
-      addImport(curr, get_anyref, "aiia");
-      addImport(curr, set_anyref, "aiia");
+      addImport(curr, get_funcref, "FiiF");
+      addImport(curr, set_funcref, "FiiF");
+      addImport(curr, get_anyref, "AiiA");
+      addImport(curr, set_anyref, "AiiA");
     }
     if (curr->features.hasExceptionHandling()) {
-      addImport(curr, get_exnref, "eiie");
-      addImport(curr, set_exnref, "eiie");
+      addImport(curr, get_exnref, "EiiE");
+      addImport(curr, set_exnref, "EiiE");
     }
   }
 

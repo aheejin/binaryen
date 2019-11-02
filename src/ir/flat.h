@@ -79,7 +79,7 @@ inline void verifyFlatness(Function* func) {
         verify(!curr->type.isConcrete(), "tees are not allowed, only sets");
       } else {
         for (auto* child : ChildIterator(curr)) {
-          verify(child->is<Const>() || child->is<LocalGet>() ||
+          verify(child->isConstExpression() || child->is<LocalGet>() ||
                    child->is<Unreachable>(),
                  "instructions must only have const, local.get, or unreachable "
                  "as children");

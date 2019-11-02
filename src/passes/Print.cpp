@@ -1291,7 +1291,12 @@ struct PrintExpressionContents
     }
     restoreNormalColor(o);
   }
-  void visitSelect(Select* curr) { prepareColor(o) << "select"; }
+  void visitSelect(Select* curr) {
+    prepareColor(o) << "select";
+    if (curr->type.isRef()) {
+      o << " (result " << curr->type << ')';
+    }
+  }
   void visitDrop(Drop* curr) { printMedium(o, "drop"); }
   void visitReturn(Return* curr) { printMedium(o, "return"); }
   void visitHost(Host* curr) {
@@ -1303,6 +1308,12 @@ struct PrintExpressionContents
         printMedium(o, "memory.grow");
         break;
     }
+  }
+  void visitRefNull(RefNull* curr) { printMedium(o, "ref.null"); }
+  void visitRefIsNull(RefIsNull* curr) { printMedium(o, "ref.is_null"); }
+  void visitRefFunc(RefFunc* curr) {
+    printMedium(o, "ref.func ");
+    printName(curr->func, o);
   }
   void visitTry(Try* curr) {
     printMedium(o, "try");
@@ -1793,6 +1804,23 @@ struct PrintSExpression : public OverriddenVisitor<PrintSExpression> {
         o << ')';
       }
     }
+  }
+  void visitRefNull(RefNull* curr) {
+    o << '(';
+    PrintExpressionContents(currFunction, o).visit(curr);
+    o << ')';
+  }
+  void visitRefIsNull(RefIsNull* curr) {
+    o << '(';
+    PrintExpressionContents(currFunction, o).visit(curr);
+    incIndent();
+    printFullLine(curr->anyref);
+    decIndent();
+  }
+  void visitRefFunc(RefFunc* curr) {
+    o << '(';
+    PrintExpressionContents(currFunction, o).visit(curr);
+    o << ')';
   }
   // try-catch-end is written in the folded wast format as
   // (try

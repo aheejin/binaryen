@@ -114,10 +114,12 @@ struct ShellExternalInterface : ModuleInstance::ExternalInterface {
             break;
           case v128:
             assert(false && "v128 not implemented yet");
+          case funcref:
           case anyref:
-            assert(false && "anyref not implemented yet");
           case exnref:
-            assert(false && "exnref not implemented yet");
+            globals[import->name] = Literal::makeNullref();
+            break;
+          case nullref: // there cannot be nullref globals
           case none:
           case unreachable:
             WASM_UNREACHABLE();

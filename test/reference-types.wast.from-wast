@@ -1,0 +1,430 @@
+(module
+ (type $sig_anyref (func (param anyref)))
+ (type $sig_funcref (func (param funcref)))
+ (type $sig_exnref (func (param exnref)))
+ (type $FUNCSIG$v (func))
+ (type $FUNCSIG$FA (func (param anyref) (result funcref)))
+ (type $FUNCSIG$A (func (result anyref)))
+ (type $FUNCSIG$F (func (result funcref)))
+ (type $FUNCSIG$E (func (result exnref)))
+ (import "env" "import_global" (global $import_global anyref))
+ (import "env" "import_func" (func $import_func (param anyref) (result funcref)))
+ (table $0 3 3 funcref)
+ (elem (i32.const 0) $take_anyref $take_funcref $take_exnref)
+ (global $global_anyref (mut anyref) (ref.null))
+ (global $global_funcref (mut funcref) (ref.null))
+ (global $global_exnref (mut exnref) (ref.null))
+ (global $global_anyref2 (mut anyref) (ref.func $foo))
+ (global $global_funcref2 (mut funcref) (ref.func $foo))
+ (export "export_func" (func $import_func))
+ (export "export_global" (global $import_global))
+ (func $take_anyref (; 1 ;) (type $sig_anyref) (param $0 anyref)
+  (nop)
+ )
+ (func $take_funcref (; 2 ;) (type $sig_funcref) (param $0 funcref)
+  (nop)
+ )
+ (func $take_exnref (; 3 ;) (type $sig_exnref) (param $0 exnref)
+  (nop)
+ )
+ (func $foo (; 4 ;) (type $FUNCSIG$v)
+  (nop)
+ )
+ (func $test (; 5 ;) (type $FUNCSIG$v)
+  (local $local_anyref anyref)
+  (local $local_funcref funcref)
+  (local $local_exnref exnref)
+  (local.set $local_anyref
+   (local.get $local_anyref)
+  )
+  (local.set $local_anyref
+   (local.get $local_funcref)
+  )
+  (local.set $local_anyref
+   (local.get $local_exnref)
+  )
+  (local.set $local_anyref
+   (ref.null)
+  )
+  (local.set $local_anyref
+   (ref.func $foo)
+  )
+  (local.set $local_funcref
+   (local.get $local_funcref)
+  )
+  (local.set $local_funcref
+   (ref.null)
+  )
+  (local.set $local_funcref
+   (ref.func $foo)
+  )
+  (local.set $local_exnref
+   (local.get $local_exnref)
+  )
+  (local.set $local_exnref
+   (ref.null)
+  )
+  (global.set $global_anyref
+   (global.get $global_anyref)
+  )
+  (global.set $global_anyref
+   (global.get $global_funcref)
+  )
+  (global.set $global_anyref
+   (global.get $global_exnref)
+  )
+  (global.set $global_anyref
+   (ref.null)
+  )
+  (global.set $global_anyref
+   (ref.func $foo)
+  )
+  (global.set $global_funcref
+   (global.get $global_funcref)
+  )
+  (global.set $global_funcref
+   (ref.null)
+  )
+  (global.set $global_funcref
+   (ref.func $foo)
+  )
+  (global.set $global_exnref
+   (global.get $global_exnref)
+  )
+  (global.set $global_exnref
+   (ref.null)
+  )
+  (call $take_anyref
+   (local.get $local_anyref)
+  )
+  (call $take_anyref
+   (local.get $local_funcref)
+  )
+  (call $take_anyref
+   (local.get $local_exnref)
+  )
+  (call $take_anyref
+   (ref.null)
+  )
+  (call_indirect (type $sig_anyref)
+   (local.get $local_anyref)
+   (i32.const 0)
+  )
+  (call_indirect (type $sig_anyref)
+   (local.get $local_funcref)
+   (i32.const 0)
+  )
+  (call_indirect (type $sig_anyref)
+   (local.get $local_exnref)
+   (i32.const 0)
+  )
+  (call_indirect (type $sig_anyref)
+   (ref.null)
+   (i32.const 0)
+  )
+  (call_indirect (type $sig_funcref)
+   (local.get $local_funcref)
+   (i32.const 1)
+  )
+  (call_indirect (type $sig_funcref)
+   (ref.null)
+   (i32.const 1)
+  )
+  (call_indirect (type $sig_exnref)
+   (local.get $local_exnref)
+   (i32.const 2)
+  )
+  (call_indirect (type $sig_exnref)
+   (ref.null)
+   (i32.const 2)
+  )
+  (drop
+   (block $block (result anyref)
+    (br_if $block
+     (local.get $local_anyref)
+     (i32.const 1)
+    )
+   )
+  )
+  (drop
+   (block $block0 (result anyref)
+    (br_if $block0
+     (local.get $local_funcref)
+     (i32.const 1)
+    )
+   )
+  )
+  (drop
+   (block $block1 (result anyref)
+    (br_if $block1
+     (local.get $local_exnref)
+     (i32.const 1)
+    )
+   )
+  )
+  (drop
+   (block $block2 (result anyref)
+    (br_if $block2
+     (ref.null)
+     (i32.const 1)
+    )
+   )
+  )
+  (drop
+   (block $block3 (result funcref)
+    (br_if $block3
+     (ref.null)
+     (i32.const 1)
+    )
+   )
+  )
+  (drop
+   (block $block4 (result exnref)
+    (br_if $block4
+     (ref.null)
+     (i32.const 1)
+    )
+   )
+  )
+  (drop
+   (loop $loop-in (result anyref)
+    (local.get $local_anyref)
+   )
+  )
+  (drop
+   (loop $loop-in5 (result anyref)
+    (local.get $local_funcref)
+   )
+  )
+  (drop
+   (loop $loop-in6 (result anyref)
+    (local.get $local_exnref)
+   )
+  )
+  (drop
+   (loop $loop-in7 (result anyref)
+    (ref.null)
+   )
+  )
+  (drop
+   (loop $loop-in8 (result funcref)
+    (local.get $local_funcref)
+   )
+  )
+  (drop
+   (loop $loop-in9 (result funcref)
+    (ref.null)
+   )
+  )
+  (drop
+   (loop $loop-in10 (result exnref)
+    (local.get $local_exnref)
+   )
+  )
+  (drop
+   (loop $loop-in11 (result exnref)
+    (ref.null)
+   )
+  )
+  (drop
+   (if (result anyref)
+    (i32.const 1)
+    (local.get $local_anyref)
+    (local.get $local_exnref)
+   )
+  )
+  (drop
+   (if (result anyref)
+    (i32.const 1)
+    (ref.func $foo)
+    (ref.null)
+   )
+  )
+  (drop
+   (if (result funcref)
+    (i32.const 1)
+    (ref.func $foo)
+    (ref.null)
+   )
+  )
+  (drop
+   (if (result exnref)
+    (i32.const 1)
+    (local.get $local_exnref)
+    (ref.null)
+   )
+  )
+  (drop
+   (try (result anyref)
+    (local.get $local_anyref)
+    (catch
+     (exnref.pop)
+    )
+   )
+  )
+  (drop
+   (try (result anyref)
+    (ref.func $foo)
+    (catch
+     (drop
+      (exnref.pop)
+     )
+     (ref.null)
+    )
+   )
+  )
+  (drop
+   (try (result funcref)
+    (ref.func $foo)
+    (catch
+     (drop
+      (exnref.pop)
+     )
+     (ref.null)
+    )
+   )
+  )
+  (drop
+   (try (result exnref)
+    (ref.null)
+    (catch
+     (exnref.pop)
+    )
+   )
+  )
+  (drop
+   (select (result anyref)
+    (local.get $local_anyref)
+    (ref.func $foo)
+    (i32.const 1)
+   )
+  )
+  (drop
+   (select (result anyref)
+    (local.get $local_exnref)
+    (local.get $local_anyref)
+    (i32.const 1)
+   )
+  )
+  (drop
+   (select (result anyref)
+    (local.get $local_anyref)
+    (ref.null)
+    (i32.const 1)
+   )
+  )
+  (drop
+   (select (result anyref)
+    (ref.null)
+    (ref.func $foo)
+    (i32.const 1)
+   )
+  )
+  (drop
+   (select (result funcref)
+    (ref.func $foo)
+    (ref.null)
+    (i32.const 1)
+   )
+  )
+  (drop
+   (select (result exnref)
+    (ref.null)
+    (local.get $local_exnref)
+    (i32.const 1)
+   )
+  )
+  (drop
+   (select
+    (i32.const 0)
+    (i32.const 2)
+    (i32.const 1)
+   )
+  )
+  (drop
+   (ref.is_null
+    (local.get $local_anyref)
+   )
+  )
+  (drop
+   (ref.is_null
+    (local.get $local_funcref)
+   )
+  )
+  (drop
+   (ref.is_null
+    (local.get $local_exnref)
+   )
+  )
+  (drop
+   (ref.is_null
+    (ref.null)
+   )
+  )
+  (drop
+   (ref.is_null
+    (ref.func $foo)
+   )
+  )
+ )
+ (func $return_anyref (; 6 ;) (type $FUNCSIG$A) (result anyref)
+  (local $local_anyref anyref)
+  (local.get $local_anyref)
+ )
+ (func $return_anyref2 (; 7 ;) (type $FUNCSIG$A) (result anyref)
+  (ref.func $foo)
+ )
+ (func $return_anyref3 (; 8 ;) (type $FUNCSIG$A) (result anyref)
+  (local $local_exnref exnref)
+  (local.get $local_exnref)
+ )
+ (func $return_anyref4 (; 9 ;) (type $FUNCSIG$A) (result anyref)
+  (ref.null)
+ )
+ (func $return_funcref (; 10 ;) (type $FUNCSIG$F) (result funcref)
+  (ref.func $foo)
+ )
+ (func $return_funcref2 (; 11 ;) (type $FUNCSIG$F) (result funcref)
+  (ref.null)
+ )
+ (func $return_exnref (; 12 ;) (type $FUNCSIG$E) (result exnref)
+  (local $local_exnref exnref)
+  (local.get $local_exnref)
+ )
+ (func $return_exnref2 (; 13 ;) (type $FUNCSIG$E) (result exnref)
+  (ref.null)
+ )
+ (func $return_anyref_returns (; 14 ;) (type $FUNCSIG$A) (result anyref)
+  (local $local_anyref anyref)
+  (local $local_exnref exnref)
+  (return
+   (local.get $local_anyref)
+  )
+  (return
+   (local.get $local_exnref)
+  )
+  (return
+   (ref.func $foo)
+  )
+  (return
+   (ref.null)
+  )
+ )
+ (func $return_funcref_returns (; 15 ;) (type $FUNCSIG$F) (result funcref)
+  (return
+   (ref.func $foo)
+  )
+  (return
+   (ref.null)
+  )
+ )
+ (func $return_exnref_returns (; 16 ;) (type $FUNCSIG$E) (result exnref)
+  (local $local_exnref exnref)
+  (return
+   (local.get $local_exnref)
+  )
+  (return
+   (ref.null)
+  )
+ )
+)

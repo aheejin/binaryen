@@ -1435,15 +1435,11 @@
   )
  )
  (func $global (; 25 ;) (type $1)
-  (local $0 i32)
   (block
    (unreachable)
    (unreachable)
-   (local.set $0
-    (global.get $x)
-   )
    (drop
-    (local.get $0)
+    (global.get $x)
    )
    (nop)
    (global.set $x

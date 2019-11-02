@@ -623,8 +623,10 @@ struct RemoveUnusedBrs : public WalkerPass<PostWalker<RemoveUnusedBrs>> {
           // return => nop
           ExpressionManipulator::nop(flow);
           anotherCycle = true;
-        } else {
+        } else if (flow->value->type != nullref) {
           // return with value => value
+          // if the value type is nullref, this can make the enclosing block's
+          // type nullref, so skip in that case
           *flows[i] = flow->value;
           anotherCycle = true;
         }

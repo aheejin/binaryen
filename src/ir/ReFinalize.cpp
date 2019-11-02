@@ -24,6 +24,26 @@ static Type getValueType(Expression* value) {
   return value ? value->type : none;
 }
 
+void refinalizeAndAvoidNullref(Expression* curr) {
+  auto old = curr->type;
+  if (auto* sub = curr->dynCast<Block>()) {
+    sub->finalize();
+  } else if (auto* sub = curr->dynCast<If>()) {
+    sub->finalize();
+  } else if (auto* sub = curr->dynCast<Loop>()) {
+    sub->finalize();
+  } else if (auto* sub = curr->dynCast<Try>()) {
+    sub->finalize();
+  } else if (auto* sub = curr->dynCast<Select>()) {
+    sub->finalize();
+  }
+  // restore the original type ir the new type is nullref, because
+  // block/loop/ir/try/select cannot have nullref type.
+  if (curr->type == nullref && isLeftSubTypeOfRight(curr->type, old)) {
+    curr->type = old;
+  }
+}
+
 namespace {
 
 // Handles a branch fixup for visitBlock: if the branch goes to the
@@ -48,6 +68,14 @@ void ReFinalize::visitBlock(Block* curr) {
   // do this quickly, without any validation
   // last element determines type
   curr->type = curr->list.back()->type;
+
+  // we may have just made the return type lower in the type lattice, for
+  // example, anyref to other reference types or funcref/exnref to nullref. we
+  // restore the original type in that case.
+  if (curr->type != old && isLeftSubTypeOfRight(curr->type, old)) {
+    curr->type = old;
+  }
+
   // if concrete, it doesn't matter if we have an unreachable child, and we
   // don't need to look at breaks
   if (curr->type.isConcrete()) {
@@ -90,9 +118,15 @@ void ReFinalize::visitBlock(Block* curr) {
       auto type = iter->second;
       assert(type != unreachable); // we would have removed such branches
       curr->type = type;
+      // restore the original type ir the new type is nullref, because
+      // block/loop/ir/try cannot have nullref type.
+      if (curr->type == nullref && isLeftSubTypeOfRight(curr->type, old)) {
+        curr->type = old;
+      }
       return;
     }
   }
+
   if (curr->type == unreachable) {
     return;
   }
@@ -106,8 +140,8 @@ void ReFinalize::visitBlock(Block* curr) {
     }
   }
 }
-void ReFinalize::visitIf(If* curr) { curr->finalize(); }
-void ReFinalize::visitLoop(Loop* curr) { curr->finalize(); }
+void ReFinalize::visitIf(If* curr) { refinalizeAndAvoidNullref(curr); }
+void ReFinalize::visitLoop(Loop* curr) { refinalizeAndAvoidNullref(curr); }
 void ReFinalize::visitBreak(Break* curr) {
   curr->finalize();
   auto valueType = getValueType(curr->value);
@@ -155,11 +189,14 @@ void ReFinalize::visitMemoryFill(MemoryFill* curr) { curr->finalize(); }
 void ReFinalize::visitConst(Const* curr) { curr->finalize(); }
 void ReFinalize::visitUnary(Unary* curr) { curr->finalize(); }
 void ReFinalize::visitBinary(Binary* curr) { curr->finalize(); }
-void ReFinalize::visitSelect(Select* curr) { curr->finalize(); }
+void ReFinalize::visitSelect(Select* curr) { refinalizeAndAvoidNullref(curr); }
 void ReFinalize::visitDrop(Drop* curr) { curr->finalize(); }
 void ReFinalize::visitReturn(Return* curr) { curr->finalize(); }
 void ReFinalize::visitHost(Host* curr) { curr->finalize(); }
-void ReFinalize::visitTry(Try* curr) { curr->finalize(); }
+void ReFinalize::visitRefNull(RefNull* curr) { curr->finalize(); }
+void ReFinalize::visitRefIsNull(RefIsNull* curr) { curr->finalize(); }
+void ReFinalize::visitRefFunc(RefFunc* curr) { curr->finalize(); }
+void ReFinalize::visitTry(Try* curr) { refinalizeAndAvoidNullref(curr); }
 void ReFinalize::visitThrow(Throw* curr) { curr->finalize(); }
 void ReFinalize::visitRethrow(Rethrow* curr) { curr->finalize(); }
 void ReFinalize::visitBrOnExn(BrOnExn* curr) {
@@ -189,8 +226,12 @@ void ReFinalize::visitEvent(Event* curr) { WASM_UNREACHABLE(); }
 void ReFinalize::visitModule(Module* curr) { WASM_UNREACHABLE(); }
 
 void ReFinalize::updateBreakValueType(Name name, Type type) {
-  if (type != unreachable || breakValues.count(name) == 0) {
-    breakValues[name] = type;
+  if (type != unreachable) {
+    if (breakValues.count(name) == 0) {
+      breakValues[name] = type;
+    } else {
+      breakValues[name] = getLeastCommonSuperType(breakValues[name], type);
+    }
   }
 }
 
