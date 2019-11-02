@@ -62,7 +62,9 @@ std::vector<std::unique_ptr<std::vector<Type>>> typeLists = [] {
   add({Type::f32});
   add({Type::f64});
   add({Type::v128});
+  add({Type::funcref});
   add({Type::anyref});
+  add({Type::nullref});
   add({Type::exnref});
   return lists;
 }();
@@ -75,7 +77,9 @@ std::unordered_map<std::vector<Type>, uint32_t> indices = {
   {{Type::f32}, Type::f32},
   {{Type::f64}, Type::f64},
   {{Type::v128}, Type::v128},
+  {{Type::funcref}, Type::funcref},
   {{Type::anyref}, Type::anyref},
+  {{Type::nullref}, Type::nullref},
   {{Type::exnref}, Type::exnref},
 };
 
@@ -121,7 +125,12 @@ Type::Type(std::initializer_list<Type> types) { init(types); }
 
 Type::Type(const std::vector<Type>& types) { init(types); }
 
-size_t Type::size() const { return expand().size(); }
+size_t Type::size() const {
+  if (id <= unreachable) {
+    return 0;
+  }
+  return expand().size();
+}
 
 const std::vector<Type>& Type::expand() const {
   std::shared_lock<std::shared_timed_mutex> lock(mutex);
@@ -193,8 +202,14 @@ std::ostream& operator<<(std::ostream& os, Type type) {
     case Type::v128:
       os << "v128";
       break;
+    case Type::funcref:
+      os << "funcref";
+      break;
     case Type::anyref:
       os << "anyref";
+      break;
+    case Type::nullref:
+      os << "nullref";
       break;
     case Type::exnref:
       os << "exnref";
@@ -244,10 +259,7 @@ unsigned getTypeSize(Type type) {
       return 8;
     case Type::v128:
       return 16;
-    case Type::anyref: // anyref type is opaque
-    case Type::exnref: // exnref type is opaque
-    case Type::none:
-    case Type::unreachable:
+    default:
       WASM_UNREACHABLE("invalid type");
   }
   WASM_UNREACHABLE("invalid type");
@@ -257,10 +269,12 @@ FeatureSet getFeatures(Type type) {
   switch (type) {
     case v128:
       return FeatureSet::SIMD;
+    case funcref:
     case anyref:
+    case nullref:
       return FeatureSet::ReferenceTypes;
     case exnref:
-      return FeatureSet::ExceptionHandling;
+      return FeatureSet::ReferenceTypes | FeatureSet::ExceptionHandling;
     default:
       return FeatureSet();
   }
@@ -282,6 +296,16 @@ Type getType(unsigned size, bool float_) {
   WASM_UNREACHABLE("invalid size");
 }
 
+bool isLeftSubTypeOfRight(Type left, Type right) {
+  if (left == right) {
+    return true;
+  }
+  if (left.isRef() && right.isRef() && (right == anyref || left == nullref)) {
+    return true;
+  }
+  return false;
+}
+
 Type reinterpretType(Type type) {
   switch (type) {
     case Type::i32:
@@ -292,14 +316,35 @@ Type reinterpretType(Type type) {
       return i32;
     case Type::f64:
       return i64;
-    case Type::v128:
-    case Type::anyref:
-    case Type::exnref:
-    case Type::none:
-    case Type::unreachable:
+    default:
       WASM_UNREACHABLE("invalid type");
   }
   WASM_UNREACHABLE("invalid type");
+}
+
+// Gets the least upper bound from the type lattice.
+// If one of the type is unreachable, the other type becomes the result.
+// If the common supertype does not exist, returns none, a poinson value.
+Type getLeastUpperBound(Type a, Type b) {
+  if (a == b) {
+    return a;
+  }
+  if (a == unreachable) {
+    return b;
+  }
+  if (b == unreachable) {
+    return a;
+  }
+  if (!a.isRef() || !b.isRef()) {
+    return none; // a poison value that must not be consumed
+  }
+  if (a == nullref) {
+    return b;
+  }
+  if (b == nullref) {
+    return a;
+  }
+  return anyref;
 }
 
 } // namespace wasm

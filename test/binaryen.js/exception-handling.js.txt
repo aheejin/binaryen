@@ -25,7 +25,14 @@
  )
 )
 
+<<<<<<< HEAD
 getExpressionInfo(throw) = {"id":41,"type":1,"event":"e"}
 getExpressionInfo(br_on_exn) = {"id":43,"type":8,"name":"l","event":"e"}
 getExpressionInfo(rethrow) = {"id":42,"type":1}
 getExpressionInfo(try) = {"id":40,"type":0}
+=======
+getExpressionInfo(throw) = {"id":44,"type":10,"event":"e"}
+getExpressionInfo(br_on_exn) = {"id":46,"type":9,"name":"l","event":"e"}
+getExpressionInfo(rethrow) = {"id":45,"type":10}
+getExpressionInfo(try) = {"id":43,"type":0}
+>>>>>>> Add support for reference types proposal

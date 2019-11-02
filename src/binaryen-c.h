@@ -99,7 +99,9 @@ BINARYEN_API BinaryenType BinaryenTypeInt64(void);
 BINARYEN_API BinaryenType BinaryenTypeFloat32(void);
 BINARYEN_API BinaryenType BinaryenTypeFloat64(void);
 BINARYEN_API BinaryenType BinaryenTypeVec128(void);
+BINARYEN_API BinaryenType BinaryenTypeFuncref(void);
 BINARYEN_API BinaryenType BinaryenTypeAnyref(void);
+BINARYEN_API BinaryenType BinaryenTypeNullref(void);
 BINARYEN_API BinaryenType BinaryenTypeExnref(void);
 BINARYEN_API BinaryenType BinaryenTypeUnreachable(void);
 // Not a real type. Used as the last parameter to BinaryenBlock to let
@@ -159,6 +161,9 @@ BINARYEN_API BinaryenExpressionId BinaryenMemoryInitId(void);
 BINARYEN_API BinaryenExpressionId BinaryenDataDropId(void);
 BINARYEN_API BinaryenExpressionId BinaryenMemoryCopyId(void);
 BINARYEN_API BinaryenExpressionId BinaryenMemoryFillId(void);
+BINARYEN_API BinaryenExpressionId BinaryenRefNullId(void);
+BINARYEN_API BinaryenExpressionId BinaryenRefIsNullId(void);
+BINARYEN_API BinaryenExpressionId BinaryenRefFuncId(void);
 BINARYEN_API BinaryenExpressionId BinaryenTryId(void);
 BINARYEN_API BinaryenExpressionId BinaryenThrowId(void);
 BINARYEN_API BinaryenExpressionId BinaryenRethrowId(void);
@@ -240,6 +245,7 @@ struct BinaryenLiteral {
     double f64;
     uint8_t v128[16];
   };
+  const char* func;
 };
 
 BINARYEN_API struct BinaryenLiteral BinaryenLiteralInt32(int32_t x);
@@ -705,7 +711,8 @@ BINARYEN_API BinaryenExpressionRef
 BinaryenSelect(BinaryenModuleRef module,
                BinaryenExpressionRef condition,
                BinaryenExpressionRef ifTrue,
-               BinaryenExpressionRef ifFalse);
+               BinaryenExpressionRef ifFalse,
+               BinaryenType type);
 BINARYEN_API BinaryenExpressionRef BinaryenDrop(BinaryenModuleRef module,
                                                 BinaryenExpressionRef value);
 // Return: value can be NULL
@@ -810,6 +817,11 @@ BinaryenMemoryFill(BinaryenModuleRef module,
                    BinaryenExpressionRef dest,
                    BinaryenExpressionRef value,
                    BinaryenExpressionRef size);
+BINARYEN_API BinaryenExpressionRef BinaryenRefNull(BinaryenModuleRef module);
+BINARYEN_API BinaryenExpressionRef
+BinaryenRefIsNull(BinaryenModuleRef module, BinaryenExpressionRef anyref);
+BINARYEN_API BinaryenExpressionRef BinaryenRefFunc(BinaryenModuleRef module,
+                                                   const char* func);
 BINARYEN_API BinaryenExpressionRef BinaryenTry(BinaryenModuleRef module,
                                                BinaryenExpressionRef body,
                                                BinaryenExpressionRef catchBody);
@@ -1047,6 +1059,11 @@ BINARYEN_API BinaryenExpressionRef
 BinaryenMemoryFillGetValue(BinaryenExpressionRef expr);
 BINARYEN_API BinaryenExpressionRef
 BinaryenMemoryFillGetSize(BinaryenExpressionRef expr);
+
+BINARYEN_API BinaryenExpressionRef
+BinaryenRefIsNullGetAnyref(BinaryenExpressionRef expr);
+
+BINARYEN_API const char* BinaryenRefFuncGetFunc(BinaryenExpressionRef expr);
 
 BINARYEN_API BinaryenExpressionRef
 BinaryenTryGetBody(BinaryenExpressionRef expr);

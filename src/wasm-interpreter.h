@@ -143,13 +143,13 @@ public:
     if (!ret.breaking() &&
         (curr->type.isConcrete() || ret.value.type.isConcrete())) {
 #if 1 // def WASM_INTERPRETER_DEBUG
-      if (ret.value.type != curr->type) {
+      if (!isLeftSubTypeOfRight(ret.value.type, curr->type)) {
         std::cerr << "expected " << curr->type << ", seeing " << ret.value.type
                   << " from\n"
                   << curr << '\n';
       }
 #endif
-      assert(ret.value.type == curr->type);
+      assert(isLeftSubTypeOfRight(ret.value.type, curr->type));
     }
     depth--;
     return ret;
@@ -1091,7 +1091,7 @@ public:
       return Literal(uint64_t(val));
     }
   }
-  Flow visitAtomicFence(AtomicFence*) {
+  Flow visitAtomicFence(AtomicFence* curr) {
     // Wasm currently supports only sequentially consistent atomics, in which
     // case atomic_fence can be lowered to nothing.
     NOTE_ENTER("AtomicFence");
@@ -1119,6 +1119,26 @@ public:
   Flow visitSIMDLoadExtend(SIMDLoad*) { WASM_UNREACHABLE("unimp"); }
   Flow visitPush(Push*) { WASM_UNREACHABLE("unimp"); }
   Flow visitPop(Pop*) { WASM_UNREACHABLE("unimp"); }
+  Flow visitRefNull(RefNull* curr) {
+    NOTE_ENTER("RefNull");
+    return Literal::makeNullref();
+  }
+  Flow visitRefIsNull(RefIsNull* curr) {
+    NOTE_ENTER("RefIsNull");
+    Flow flow = visit(curr->anyref);
+    if (flow.breaking()) {
+      return flow;
+    }
+    Literal value = flow.value;
+    NOTE_EVAL1(value);
+    return Literal(value.type == nullref);
+  }
+  Flow visitRefFunc(RefFunc* curr) {
+    NOTE_ENTER("RefFunc");
+    NOTE_NAME(curr->func);
+    return Literal::makeFuncref(curr->func);
+  }
+  // TODO Implement EH instructions
   Flow visitTry(Try*) { WASM_UNREACHABLE("unimp"); }
   Flow visitThrow(Throw*) { WASM_UNREACHABLE("unimp"); }
   Flow visitRethrow(Rethrow*) { WASM_UNREACHABLE("unimp"); }
@@ -1213,10 +1233,7 @@ public:
           return Literal(load64u(addr)).castToF64();
         case v128:
           return Literal(load128(addr).data());
-        case anyref: // anyref cannot be loaded from memory
-        case exnref: // exnref cannot be loaded from memory
-        case none:
-        case unreachable:
+        default:
           WASM_UNREACHABLE("unexpected type");
       }
       WASM_UNREACHABLE("invalid type");
@@ -1268,10 +1285,7 @@ public:
         case v128:
           store128(addr, value.getv128());
           break;
-        case anyref: // anyref cannot be stored from memory
-        case exnref: // exnref cannot be stored in memory
-        case none:
-        case unreachable:
+        default:
           WASM_UNREACHABLE("unexpected type");
       }
     }
@@ -1459,7 +1473,7 @@ private:
       for (size_t i = 0; i < function->getNumLocals(); i++) {
         if (i < arguments.size()) {
           assert(function->isParam(i));
-          if (function->params[i] != arguments[i].type) {
+          if (!isLeftSubTypeOfRight(arguments[i].type, function->params[i])) {
             std::cerr << "Function `" << function->name << "` expects type "
                       << function->params[i] << " for parameter " << i
                       << ", got " << arguments[i].type << "." << std::endl;
@@ -1468,7 +1482,7 @@ private:
           locals[i] = arguments[i];
         } else {
           assert(function->isVar(i));
-          locals[i].type = function->getLocalType(i);
+          locals[i] = Literal::makeZero(function->getLocalType(i));
         }
       }
     }
@@ -1575,7 +1589,8 @@ private:
       }
       NOTE_EVAL1(index);
       NOTE_EVAL1(flow.value);
-      assert(curr->isTee() ? flow.value.type == curr->type : true);
+      assert(curr->isTee() ? isLeftSubTypeOfRight(flow.value.type, curr->type)
+                           : true);
       scope.locals[index] = flow.value;
       return curr->isTee() ? flow : Flow();
     }
@@ -2053,7 +2068,7 @@ public:
     // cannot still be breaking, it means we missed our stop
     assert(!flow.breaking() || flow.breakTo == RETURN_FLOW);
     Literal ret = flow.value;
-    if (function->result != ret.type) {
+    if (!isLeftSubTypeOfRight(ret.type, function->result)) {
       std::cerr << "calling " << function->name << " resulted in " << ret
                 << " but the function type is " << function->result << '\n';
       WASM_UNREACHABLE("unexpect result type");

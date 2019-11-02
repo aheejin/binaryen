@@ -183,13 +183,14 @@ struct Flatten
           auto type = br->value->type;
           if (type.isConcrete()) {
             // we are sending a value. use a local instead
-            Index temp = getTempForBreakTarget(br->name, type);
+            Type blockType = findBreakTarget(br->name)->type;
+            Index temp = getTempForBreakTarget(br->name, blockType);
             ourPreludes.push_back(builder.makeLocalSet(temp, br->value));
             if (br->condition) {
               // the value must also flow out
               ourPreludes.push_back(br);
               if (br->type.isConcrete()) {
-                replaceCurrent(builder.makeLocalGet(temp, type));
+                replaceCurrent(builder.makeLocalGet(temp, blockType));
               } else {
                 assert(br->type == unreachable);
                 replaceCurrent(builder.makeUnreachable());
@@ -227,6 +228,8 @@ struct Flatten
         }
       }
     }
+    // TODO Handle br_on_exn
+
     // continue for general handling of everything, control flow or otherwise
     curr = getCurrent(); // we may have replaced it
     // we have changed children
