@@ -17,8 +17,8 @@ function stringify(expr) {
 }
 
 var module = new Binaryen.Module();
-module.setFeatures(Binaryen.Features.ReferenceTypes);
-module.setFeatures(Binaryen.Features.ExceptionHandling);
+module.setFeatures(Binaryen.Features.ReferenceTypes |
+                   Binaryen.Features.ExceptionHandling);
 
 var v = module.addFunctionType("v", Binaryen.none, []);
 var event_ = module.addEvent("e", 0, Binaryen.i32, Binaryen.none);
