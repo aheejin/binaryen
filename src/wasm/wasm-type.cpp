@@ -125,12 +125,7 @@ Type::Type(std::initializer_list<Type> types) { init(types); }
 
 Type::Type(const std::vector<Type>& types) { init(types); }
 
-size_t Type::size() const {
-  if (id <= unreachable) {
-    return 0;
-  }
-  return expand().size();
-}
+size_t Type::size() const { return expand().size(); }
 
 const std::vector<Type>& Type::expand() const {
   std::shared_lock<std::shared_timed_mutex> lock(mutex);

@@ -3863,31 +3863,6 @@ int main() {
   expressions[744] = BinaryenConst(the_module, BinaryenLiteralInt32(2449));
   {
     BinaryenExpressionRef operands[] = { expressions[14], expressions[15], expressions[16], expressions[17] };
-<<<<<<< HEAD
-    expressions[743] = BinaryenCallIndirect(the_module, expressions[742], operands, 4, "iiIfF");
-  }
-  expressions[744] = BinaryenUnary(the_module, 20, expressions[743]);
-  expressions[745] = BinaryenLocalGet(the_module, 0, 2);
-  expressions[746] = BinaryenDrop(the_module, expressions[745]);
-  expressions[747] = BinaryenConst(the_module, BinaryenLiteralInt32(101));
-  expressions[748] = BinaryenLocalSet(the_module, 0, expressions[747]);
-  expressions[749] = BinaryenConst(the_module, BinaryenLiteralInt32(102));
-  expressions[750] = BinaryenLocalTee(the_module, 0, expressions[749], 2);
-  expressions[751] = BinaryenDrop(the_module, expressions[750]);
-  expressions[752] = BinaryenConst(the_module, BinaryenLiteralInt32(1));
-  expressions[753] = BinaryenLoad(the_module, 4, 0, 0, 0, 2, expressions[752]);
-  expressions[754] = BinaryenConst(the_module, BinaryenLiteralInt32(8));
-  expressions[755] = BinaryenLoad(the_module, 2, 1, 2, 1, 3, expressions[754]);
-  expressions[756] = BinaryenConst(the_module, BinaryenLiteralInt32(2));
-  expressions[757] = BinaryenLoad(the_module, 4, 0, 0, 0, 4, expressions[756]);
-  expressions[758] = BinaryenConst(the_module, BinaryenLiteralInt32(9));
-  expressions[759] = BinaryenLoad(the_module, 8, 0, 2, 8, 5, expressions[758]);
-  expressions[760] = BinaryenStore(the_module, 4, 0, 0, expressions[30], expressions[31], 2);
-  expressions[761] = BinaryenStore(the_module, 8, 2, 4, expressions[32], expressions[33], 3);
-  expressions[762] = BinaryenSelect(the_module, expressions[27], expressions[28], expressions[29]);
-  expressions[763] = BinaryenConst(the_module, BinaryenLiteralInt32(1337));
-  expressions[764] = BinaryenReturn(the_module, expressions[763]);
-=======
     expressions[745] = BinaryenCallIndirect(the_module, expressions[744], operands, 4, "iiIfF");
   }
   expressions[746] = BinaryenUnary(the_module, 20, expressions[745]);
@@ -3896,7 +3871,7 @@ int main() {
   expressions[749] = BinaryenConst(the_module, BinaryenLiteralInt32(101));
   expressions[750] = BinaryenLocalSet(the_module, 0, expressions[749]);
   expressions[751] = BinaryenConst(the_module, BinaryenLiteralInt32(102));
-  expressions[752] = BinaryenLocalTee(the_module, 0, expressions[751]);
+  expressions[752] = BinaryenLocalTee(the_module, 0, expressions[751], 2);
   expressions[753] = BinaryenDrop(the_module, expressions[752]);
   expressions[754] = BinaryenConst(the_module, BinaryenLiteralInt32(1));
   expressions[755] = BinaryenLoad(the_module, 4, 0, 0, 0, 2, expressions[754]);
@@ -3911,7 +3886,6 @@ int main() {
   expressions[764] = BinaryenSelect(the_module, expressions[27], expressions[28], expressions[29], BinaryenTypeAuto());
   expressions[765] = BinaryenConst(the_module, BinaryenLiteralInt32(1337));
   expressions[766] = BinaryenReturn(the_module, expressions[765]);
->>>>>>> Add support for reference types proposal
   {
     BinaryenExpressionRef operands[] = { expressions[10], expressions[11], expressions[12], expressions[13] };
     expressions[767] = BinaryenReturnCall(the_module, "kitchen()sinker", operands, 4, 2);

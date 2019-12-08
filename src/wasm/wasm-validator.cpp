@@ -759,7 +759,7 @@ void FunctionValidator::visitLocalSet(LocalSet* curr) {
                "local.set index must be small enough");
   if (curr->value->type != unreachable) {
     if (curr->type != none) { // tee is ok anyhow
-      shouldBeEqualOrFirstIsUnreachable(
+      shouldLeftBeSubTypeOfRightOrUnreachable(
         curr->value->type,
         curr->type,
         curr,
