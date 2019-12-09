@@ -183,7 +183,7 @@ struct Flatten
           auto type = br->value->type;
           if (type.isConcrete()) {
             // we are sending a value. use a local instead
-            Type blockType = findBreakTarget(br->name)->type;
+            Type blockType = findInnermostBreakTarget()->type;
             Index temp = getTempForBreakTarget(br->name, blockType);
             ourPreludes.push_back(builder.makeLocalSet(temp, br->value));
             if (br->condition) {
@@ -305,12 +305,12 @@ private:
   // one if there isn't one yet
   Index getTempForBreakTarget(Name name, Type type) {
     auto iter = breakTemps.find(name);
-    if (iter != breakTemps.end()) {
+    Function* func = getFunction();
+    if (iter != breakTemps.end() &&
+        isLeftSubTypeOfRight(type, func->getLocalType(iter->second))) {
       return iter->second;
-    } else {
-      return breakTemps[name] =
-               Builder(*getModule()).addVar(getFunction(), type);
     }
+    return breakTemps[name] = Builder(*getModule()).addVar(func, type);
   }
 };
 

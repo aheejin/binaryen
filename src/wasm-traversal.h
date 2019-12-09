@@ -1153,7 +1153,7 @@ struct ControlFlowWalker : public PostWalker<SubType, VisitorType> {
   Expression* findBreakTarget(Name name) {
     assert(!controlFlowStack.empty());
     Index i = controlFlowStack.size() - 1;
-    while (1) {
+    while (true) {
       auto* curr = controlFlowStack[i];
       if (Block* block = curr->template dynCast<Block>()) {
         if (name == block->name) {
@@ -1165,7 +1165,22 @@ struct ControlFlowWalker : public PostWalker<SubType, VisitorType> {
         }
       } else {
         // an if, ignorable
-        assert(curr->template is<If>());
+        assert(curr->template is<If>() || curr->template is<Try>());
+      }
+      if (i == 0) {
+        return nullptr;
+      }
+      i--;
+    }
+  }
+
+  Expression* findInnermostBreakTarget() {
+    assert(!controlFlowStack.empty());
+    Index i = controlFlowStack.size() - 1;
+    while (true) {
+      auto* curr = controlFlowStack[i];
+      if (curr->template is<Block>() || curr->template is<Loop>()) {
+        return curr;
       }
       if (i == 0) {
         return nullptr;
@@ -1223,7 +1238,7 @@ struct ExpressionStackWalker : public PostWalker<SubType, VisitorType> {
   Expression* findBreakTarget(Name name) {
     assert(!expressionStack.empty());
     Index i = expressionStack.size() - 1;
-    while (1) {
+    while (true) {
       auto* curr = expressionStack[i];
       if (Block* block = curr->template dynCast<Block>()) {
         if (name == block->name) {
@@ -1233,6 +1248,21 @@ struct ExpressionStackWalker : public PostWalker<SubType, VisitorType> {
         if (name == loop->name) {
           return curr;
         }
+      }
+      if (i == 0) {
+        return nullptr;
+      }
+      i--;
+    }
+  }
+
+  Expression* findInnermostBreakTarget() {
+    assert(!expressionStack.empty());
+    Index i = expressionStack.size() - 1;
+    while (true) {
+      auto* curr = expressionStack[i];
+      if (curr->template is<Block>() || curr->template is<Loop>()) {
+        return curr;
       }
       if (i == 0) {
         return nullptr;
