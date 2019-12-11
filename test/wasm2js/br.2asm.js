@@ -112,7 +112,7 @@ function asmFunc(global, env, buffer) {
  }
  
  function $13() {
-  var $0 = 0, $1_1 = 0, $3_1 = 0;
+  var $0 = 0, $1_1 = 0, $2_1 = 0;
   block : {
    loop_in : while (1) {
     $0 = 3;
@@ -123,7 +123,7 @@ function asmFunc(global, env, buffer) {
  }
  
  function $14() {
-  var $0 = 0, $1_1 = 0, $3_1 = 0;
+  var $0 = 0, $1_1 = 0, $2_1 = 0;
   block : {
    loop_in : while (1) {
     dummy();
@@ -213,7 +213,7 @@ function asmFunc(global, env, buffer) {
  }
  
  function $24() {
-  var $0 = 0, $5_1 = 0;
+  var $0 = 0, $3_1 = 0;
   if_ : {
    $0 = 2;
    break if_;
@@ -224,15 +224,15 @@ function asmFunc(global, env, buffer) {
  function $25($0, $1_1) {
   $0 = $0 | 0;
   $1_1 = $1_1 | 0;
-  var $3_1 = 0, $7_1 = 0;
+  var $3_1 = 0, $6_1 = 0;
   block : {
    if ($0) {
     $3_1 = 3;
     break block;
    } else {
-    $7_1 = $1_1
+    $6_1 = $1_1
    }
-   $3_1 = $7_1;
+   $3_1 = $6_1;
   }
   return $3_1 | 0;
  }
@@ -240,17 +240,17 @@ function asmFunc(global, env, buffer) {
  function $26($0, $1_1) {
   $0 = $0 | 0;
   $1_1 = $1_1 | 0;
-  var $6_1 = 0, $7_1 = 0;
+  var $5_1 = 0, $6_1 = 0;
   block : {
    if ($0) {
-    $7_1 = $1_1
+    $6_1 = $1_1
    } else {
-    $6_1 = 4;
+    $5_1 = 4;
     break block;
    }
-   $6_1 = $7_1;
+   $5_1 = $6_1;
   }
-  return $6_1 | 0;
+  return $5_1 | 0;
  }
  
  function $27($0, $1_1) {
@@ -459,14 +459,13 @@ function asmFunc(global, env, buffer) {
  }
  
  function $49() {
-  var $0 = 0, $0$hi = 0, i64toi32_i32$1 = 0;
+  var $0 = 0, $0$hi = 0;
   block : {
    $0 = 45;
    $0$hi = 0;
    break block;
   }
-  i64toi32_i32$1 = $0$hi;
-  i64toi32_i32$HIGH_BITS = i64toi32_i32$1;
+  i64toi32_i32$HIGH_BITS = $0$hi;
   return $0 | 0;
  }
  

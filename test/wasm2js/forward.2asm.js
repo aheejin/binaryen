@@ -22,24 +22,24 @@ function asmFunc(global, env, buffer) {
  var infinity = global.Infinity;
  function even(n) {
   n = n | 0;
-  var $10 = 0;
+  var $8 = 0;
   if ((n | 0) == (0 | 0)) {
-   $10 = 1
+   $8 = 1
   } else {
-   $10 = odd(n - 1 | 0 | 0) | 0
+   $8 = odd(n - 1 | 0 | 0) | 0
   }
-  return $10 | 0;
+  return $8 | 0;
  }
  
  function odd(n) {
   n = n | 0;
-  var $10 = 0;
+  var $8 = 0;
   if ((n | 0) == (0 | 0)) {
-   $10 = 0
+   $8 = 0
   } else {
-   $10 = even(n - 1 | 0 | 0) | 0
+   $8 = even(n - 1 | 0 | 0) | 0
   }
-  return $10 | 0;
+  return $8 | 0;
  }
  
  var FUNCTION_TABLE = [];
