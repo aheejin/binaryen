@@ -781,3 +781,20 @@
   )
  )
 )
+
+(module
+ (func $try-catch
+  (block $label$1
+   (try
+    (nop)
+    (catch
+     (drop
+      (exnref.pop)
+     )
+     (br $label$1)
+    )
+   )
+  )
+  (unreachable)
+ )
+)

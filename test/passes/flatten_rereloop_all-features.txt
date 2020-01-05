@@ -1180,3 +1180,26 @@
   (unreachable)
  )
 )
+(module
+ (type $none_=>_none (func))
+ (func $try-catch (; 0 ;)
+  (local $0 exnref)
+  (local $1 i32)
+  (block $block$2$break
+   (block
+    (local.set $0
+     (exnref.pop)
+    )
+    (drop
+     (local.get $0)
+    )
+   )
+   (block
+    (br $block$2$break)
+   )
+  )
+  (block
+   (unreachable)
+  )
+ )
+)

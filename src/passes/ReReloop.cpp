@@ -162,7 +162,8 @@ struct ReReloop final : public Pass {
     If* curr;
     CFG::Block* condition;
     CFG::Block* ifTrueEnd;
-    int phase = 0;
+    enum Phase { IfTrueEnd, IfFalseEnd };
+    Phase phase = IfTrueEnd;
 
     IfTask(ReReloop& parent, If* curr) : Task(parent), curr(curr) {}
 
@@ -183,8 +184,7 @@ struct ReReloop final : public Pass {
     }
 
     void run() override {
-      if (phase == 0) {
-        // end of ifTrue
+      if (phase == IfTrueEnd) {
         ifTrueEnd = parent.getCurrCFGBlock();
         auto* after = parent.startCFGBlock();
         // if condition was false, go after the ifTrue, to ifFalse or outside
@@ -192,13 +192,46 @@ struct ReReloop final : public Pass {
         if (!curr->ifFalse) {
           parent.addBranch(ifTrueEnd, after);
         }
-        phase++;
-      } else if (phase == 1) {
-        // end if ifFalse
+        phase = IfFalseEnd;
+      } else if (phase == IfFalseEnd) {
         auto* ifFalseEnd = parent.getCurrCFGBlock();
         auto* after = parent.startCFGBlock();
         parent.addBranch(ifTrueEnd, after);
         parent.addBranch(ifFalseEnd, after);
+      } else {
+        WASM_UNREACHABLE("invalid phase");
+      }
+    }
+  };
+
+  struct TryTask final : public Task {
+    Try* curr;
+    CFG::Block* tryEnd;
+    enum Phase { TryEnd, CatchEnd };
+    Phase phase = TryEnd;
+
+    TryTask(ReReloop& parent, Try* curr) : Task(parent), curr(curr) {}
+
+    static void handle(ReReloop& parent, Try* curr) {
+      auto task = std::make_shared<TryTask>(parent, curr);
+      task->curr = curr;
+      parent.stack.push_back(task);
+      parent.stack.push_back(
+        std::make_shared<TriageTask>(parent, curr->catchBody));
+      parent.stack.push_back(task);
+      parent.stack.push_back(
+        std::make_shared<TriageTask>(parent, curr->body));
+    }
+
+    void run() override {
+      if (phase == TryEnd) {
+        tryEnd = parent.getCurrCFGBlock();
+        phase = CatchEnd;
+      } else if (phase == CatchEnd) {
+        auto* catchEnd = parent.getCurrCFGBlock();
+        auto* after = parent.startCFGBlock();
+        parent.addBranch(tryEnd, after);
+        parent.addBranch(catchEnd, after);
       } else {
         WASM_UNREACHABLE("invalid phase");
       }
@@ -276,6 +309,8 @@ struct ReReloop final : public Pass {
       LoopTask::handle(*this, loop);
     } else if (auto* iff = curr->dynCast<If>()) {
       IfTask::handle(*this, iff);
+    } else if (auto* tryy = curr->dynCast<Try>()) {
+      TryTask::handle(*this, tryy);
     } else if (auto* br = curr->dynCast<Break>()) {
       BreakTask::handle(*this, br);
     } else if (auto* sw = curr->dynCast<Switch>()) {
