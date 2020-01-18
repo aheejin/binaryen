@@ -62,7 +62,7 @@ flexibleCopy(Expression* original, Module& wasm, CustomCopier custom) {
     }
     Expression* visitBreak(Break* curr) {
       return builder.makeBreak(
-        curr->name, copy(curr->value), copy(curr->condition));
+        curr->name, copy(curr->value), curr->type, copy(curr->condition));
     }
     Expression* visitSwitch(Switch* curr) {
       return builder.makeSwitch(curr->targets,

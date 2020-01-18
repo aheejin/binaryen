@@ -386,12 +386,12 @@ void Loop::finalize(Type type_) {
 void Loop::finalize() { type = body->type; }
 
 void Break::finalize() {
+  // We don't touch type if there's a value unless it's unreachable; the type is
+  // given when the branch was created
   if (condition) {
     if (condition->type == Type::unreachable) {
       type = Type::unreachable;
-    } else if (value) {
-      type = value->type;
-    } else {
+    } else if (!value) {
       type = Type::none;
     }
   } else {

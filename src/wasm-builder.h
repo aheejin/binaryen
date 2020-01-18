@@ -179,9 +179,11 @@ public:
   }
   Break* makeBreak(Name name,
                    Expression* value = nullptr,
+                   Type type = Type::unreachable,
                    Expression* condition = nullptr) {
     auto* ret = allocator.alloc<Break>();
     ret->name = name;
+    ret->type = type;
     ret->value = value;
     ret->condition = condition;
     ret->finalize();

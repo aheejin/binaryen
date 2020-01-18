@@ -3108,6 +3108,7 @@ Function* Asm2WasmBuilder::processFunction(Ref ast) {
           breakWhenNotMatching = builder.makeBreak(
             Name(),
             nullptr,
+            Type::none,
             builder.makeUnary(
               UnaryOp::WrapInt64,
               builder.makeBinary(BinaryOp::ShrUInt64,

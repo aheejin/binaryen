@@ -184,6 +184,8 @@ struct Updater : public PostWalker<Updater> {
   std::map<Index, Index> localMapping;
   Name returnName;
   Builder* builder;
+  Updater(Module* module, Name returnName, Builder* builder)
+    : module(module), returnName(returnName), builder(builder) {}
   void visitReturn(Return* curr) {
     replaceCurrent(builder->makeBreak(returnName, curr->value));
   }
@@ -240,10 +242,7 @@ doInlining(Module* module, Function* into, const InliningAction& action) {
     *action.callSite = block;
   }
   // Prepare to update the inlined code's locals and other things.
-  Updater updater;
-  updater.module = module;
-  updater.returnName = block->name;
-  updater.builder = &builder;
+  Updater updater(module, block->name, &builder);
   // Set up a locals mapping
   for (Index i = 0; i < from->getNumLocals(); i++) {
     updater.localMapping[i] = builder.addVar(into, from->getLocalType(i));
