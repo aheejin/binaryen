@@ -1069,11 +1069,7 @@ Expression* SExpressionWasmBuilder::makeBlock(Element& s) {
       if (s[i]->dollared() ||
           stringToType(s[i]->str(), true /* allowError */) == Type::none) {
         sName = s[i++]->str();
-      } else {
-        sName = "block";
       }
-    } else {
-      sName = "block";
     }
     curr->name = nameMapper.pushLabelName(sName);
     // block signature
@@ -1580,8 +1576,6 @@ Expression* SExpressionWasmBuilder::makeIf(Element& s) {
   if (s[i]->dollared()) {
     // the if is labeled
     sName = s[i++]->str();
-  } else {
-    sName = "if";
   }
   auto label = nameMapper.pushLabelName(sName);
   // if signature
@@ -1651,8 +1645,6 @@ Expression* SExpressionWasmBuilder::makeLoop(Element& s) {
   Name sName;
   if (s.size() > i && s[i]->dollared()) {
     sName = s[i++]->str();
-  } else {
-    sName = "loop-in";
   }
   ret->name = nameMapper.pushLabelName(sName);
   ret->type = parseOptionalResultType(s, i);

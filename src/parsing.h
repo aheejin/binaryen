@@ -305,17 +305,22 @@ struct UniqueNameMapper {
 
   // receives a source name. generates a unique name, pushes it, and returns it
   Name pushLabelName(Name sName) {
-    Name name = getPrefixedName(sName);
+    Name name = sName;
+    if (sName.is()) {
+      name = getPrefixedName(sName);
+      labelMappings[sName].push_back(name);
+      reverseLabelMapping[name] = sName;
+    }
     labelStack.push_back(name);
-    labelMappings[sName].push_back(name);
-    reverseLabelMapping[name] = sName;
     return name;
   }
 
   void popLabelName(Name name) {
     assert(labelStack.back() == name);
     labelStack.pop_back();
-    labelMappings[reverseLabelMapping[name]].pop_back();
+    if (name.is()) {
+      labelMappings[reverseLabelMapping[name]].pop_back();
+    }
   }
 
   Name sourceToUnique(Name sName) {
