@@ -1093,7 +1093,8 @@ private:
       std::vector<Expression*> list;
       list.push_back(makeMaybeBlock(Type::none)); // primary contents
       // possible branch back
-      list.push_back(builder.makeBreak(ret->name, nullptr, makeCondition()));
+      list.push_back(
+        builder.makeBreak(ret->name, nullptr, Type::none, makeCondition()));
       list.push_back(make(type)); // final element, so we have the right type
       ret->body = builder.makeBlock(list, type);
     }
@@ -1158,7 +1159,7 @@ private:
           // we need to break to a proper place
           continue;
         }
-        auto* ret = builder.makeBreak(name, make(type), condition);
+        auto* ret = builder.makeBreak(name, make(type), type, condition);
         hangStack.pop_back();
         return ret;
       } else if (type == Type::none) {
@@ -1166,7 +1167,7 @@ private:
           // we need to break to a proper place
           continue;
         }
-        auto* ret = builder.makeBreak(name, nullptr, condition);
+        auto* ret = builder.makeBreak(name, nullptr, Type::none, condition);
         hangStack.pop_back();
         return ret;
       } else {

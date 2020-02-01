@@ -517,9 +517,9 @@ function wrapModule(module, self) {
       return Module['_BinaryenLoop'](module, strToStack(label), body);
     });
   };
-  self['break'] = self['br'] = function(label, condition, value) {
+  self['break'] = self['br'] = function(label, type, condition, value) {
     return preserveStack(function() {
-      return Module['_BinaryenBreak'](module, strToStack(label), condition, value);
+      return Module['_BinaryenBreak'](module, strToStack(label), type, condition, value);
     });
   };
   self['br_if'] = function(label, condition, value) {

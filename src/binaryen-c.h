@@ -599,6 +599,7 @@ BINARYEN_API BinaryenExpressionRef BinaryenLoop(BinaryenModuleRef module,
 BINARYEN_API BinaryenExpressionRef
 BinaryenBreak(BinaryenModuleRef module,
               const char* name,
+              BinaryenType type,
               BinaryenExpressionRef condition,
               BinaryenExpressionRef value);
 // Switch: value can be NULL

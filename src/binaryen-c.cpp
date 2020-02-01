@@ -1025,13 +1025,16 @@ BinaryenExpressionRef BinaryenLoop(BinaryenModuleRef module,
 }
 BinaryenExpressionRef BinaryenBreak(BinaryenModuleRef module,
                                     const char* name,
+                                    BinaryenType type,
                                     BinaryenExpressionRef condition,
                                     BinaryenExpressionRef value) {
-  auto* ret = Builder(*(Module*)module)
-                .makeBreak(name, (Expression*)value, (Expression*)condition);
+  auto* ret =
+    Builder(*(Module*)module)
+      .makeBreak(name, (Expression*)value, (Type)type, (Expression*)condition);
 
   if (tracing) {
-    traceExpression(ret, "BinaryenBreak", StringLit(name), condition, value);
+    traceExpression(
+      ret, "BinaryenBreak", StringLit(name), type, condition, value);
   }
 
   return static_cast<Expression*>(ret);
