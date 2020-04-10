@@ -3942,6 +3942,7 @@ void WasmBinaryReader::readDylink0(size_t payloadLen) {
   }
 }
 
+using namespace std;
 BinaryConsts::ASTNodes WasmBinaryReader::readExpression(Expression*& curr) {
   if (pos == endOfFunction) {
     throwError("Reached function end without seeing End opcode");
@@ -3957,29 +3958,37 @@ BinaryConsts::ASTNodes WasmBinaryReader::readExpression(Expression*& curr) {
   BYN_TRACE("readExpression seeing " << (int)code << std::endl);
   switch (code) {
     case BinaryConsts::Block:
+      cout << "block" << endl;
       visitBlock((curr = allocator.alloc<Block>())->cast<Block>());
       break;
     case BinaryConsts::If:
+      cout << "if" << endl;
       visitIf((curr = allocator.alloc<If>())->cast<If>());
       break;
     case BinaryConsts::Loop:
+      cout << "loop" << endl;
       visitLoop((curr = allocator.alloc<Loop>())->cast<Loop>());
       break;
     case BinaryConsts::Br:
     case BinaryConsts::BrIf:
+      cout << "br/br_if" << endl;
       visitBreak((curr = allocator.alloc<Break>())->cast<Break>(), code);
       break; // code distinguishes br from br_if
     case BinaryConsts::BrTable:
+      cout << "br_table" << endl;
       visitSwitch((curr = allocator.alloc<Switch>())->cast<Switch>());
       break;
     case BinaryConsts::CallFunction:
+      cout << "call" << endl;
       visitCall((curr = allocator.alloc<Call>())->cast<Call>());
       break;
     case BinaryConsts::CallIndirect:
+      cout << "call_indirect" << endl;
       visitCallIndirect(
         (curr = allocator.alloc<CallIndirect>())->cast<CallIndirect>());
       break;
     case BinaryConsts::RetCallFunction: {
+      cout << "ret_call" << endl;
       auto call = allocator.alloc<Call>();
       call->isReturn = true;
       curr = call;
@@ -3987,6 +3996,7 @@ BinaryConsts::ASTNodes WasmBinaryReader::readExpression(Expression*& curr) {
       break;
     }
     case BinaryConsts::RetCallIndirect: {
+      cout << "ret_call_indirect" << endl;
       auto call = allocator.alloc<CallIndirect>();
       call->isReturn = true;
       curr = call;
@@ -3994,37 +4004,47 @@ BinaryConsts::ASTNodes WasmBinaryReader::readExpression(Expression*& curr) {
       break;
     }
     case BinaryConsts::LocalGet:
+      cout << "local.get" << endl;
       visitLocalGet((curr = allocator.alloc<LocalGet>())->cast<LocalGet>());
       break;
     case BinaryConsts::LocalTee:
     case BinaryConsts::LocalSet:
+      cout << "local.tee/set" << endl;
       visitLocalSet((curr = allocator.alloc<LocalSet>())->cast<LocalSet>(),
                     code);
       break;
     case BinaryConsts::GlobalGet:
+      cout << "global.get" << endl;
       visitGlobalGet((curr = allocator.alloc<GlobalGet>())->cast<GlobalGet>());
       break;
     case BinaryConsts::GlobalSet:
+      cout << "global.set" << endl;
       visitGlobalSet((curr = allocator.alloc<GlobalSet>())->cast<GlobalSet>());
       break;
     case BinaryConsts::Select:
     case BinaryConsts::SelectWithType:
+      cout << "select" << endl;
       visitSelect((curr = allocator.alloc<Select>())->cast<Select>(), code);
       break;
     case BinaryConsts::Return:
+      cout << "return" << endl;
       visitReturn((curr = allocator.alloc<Return>())->cast<Return>());
       break;
     case BinaryConsts::Nop:
+      cout << "nop" << endl;
       visitNop((curr = allocator.alloc<Nop>())->cast<Nop>());
       break;
     case BinaryConsts::Unreachable:
+      cout << "unreachable" << endl;
       visitUnreachable(
         (curr = allocator.alloc<Unreachable>())->cast<Unreachable>());
       break;
     case BinaryConsts::Drop:
+      cout << "drop" << endl;
       visitDrop((curr = allocator.alloc<Drop>())->cast<Drop>());
       break;
     case BinaryConsts::End:
+      cout << "end" << endl;
       curr = nullptr;
       // Pop the current control flow structure off the stack. If there is none
       // then this is the "end" of the function itself, which also emits an
@@ -4036,6 +4056,7 @@ BinaryConsts::ASTNodes WasmBinaryReader::readExpression(Expression*& curr) {
     case BinaryConsts::Else:
     case BinaryConsts::Catch_P3:
     case BinaryConsts::CatchAll_P3: {
+      cout << "else/catch/catch_all" << endl;
       curr = nullptr;
       if (DWARF && currFunction) {
         assert(!controlFlowStack.empty());
@@ -4056,6 +4077,7 @@ BinaryConsts::ASTNodes WasmBinaryReader::readExpression(Expression*& curr) {
       break;
     }
     case BinaryConsts::Delegate: {
+      cout << "delegate" << endl;
       curr = nullptr;
       if (DWARF && currFunction) {
         assert(!controlFlowStack.empty());
@@ -4064,54 +4086,70 @@ BinaryConsts::ASTNodes WasmBinaryReader::readExpression(Expression*& curr) {
       break;
     }
     case BinaryConsts::RefNull:
+      cout << "ref.null" << endl;
       visitRefNull((curr = allocator.alloc<RefNull>())->cast<RefNull>());
       break;
     case BinaryConsts::RefIsNull:
+      cout << "ref.is_null" << endl;
       visitRefIsNull((curr = allocator.alloc<RefIsNull>())->cast<RefIsNull>());
       break;
     case BinaryConsts::RefFunc:
+      cout << "ref.func" << endl;
       visitRefFunc((curr = allocator.alloc<RefFunc>())->cast<RefFunc>());
       break;
     case BinaryConsts::RefEq:
+      cout << "ref.eq" << endl;
       visitRefEq((curr = allocator.alloc<RefEq>())->cast<RefEq>());
       break;
     case BinaryConsts::RefAsNonNull:
+      cout << "ref.as_non_null" << endl;
       visitRefAs((curr = allocator.alloc<RefAs>())->cast<RefAs>(), code);
       break;
     case BinaryConsts::BrOnNull:
+      cout << "ref.br_on_null" << endl;
       maybeVisitBrOn(curr, code);
       break;
     case BinaryConsts::BrOnNonNull:
+      cout << "ref.br_on_non_null" << endl;
       maybeVisitBrOn(curr, code);
       break;
     case BinaryConsts::TableGet:
+      cout << "table.get" << endl;
       visitTableGet((curr = allocator.alloc<TableGet>())->cast<TableGet>());
       break;
     case BinaryConsts::TableSet:
+      cout << "table.set" << endl;
       visitTableSet((curr = allocator.alloc<TableSet>())->cast<TableSet>());
       break;
     case BinaryConsts::Try:
+      cout << "try" << endl;
       visitTryOrTryInBlock(curr);
       break;
     case BinaryConsts::TryTable:
+      cout << "try_table" << endl;
       visitTryTable((curr = allocator.alloc<TryTable>())->cast<TryTable>());
       break;
     case BinaryConsts::Throw:
+      cout << "throw" << endl;
       visitThrow((curr = allocator.alloc<Throw>())->cast<Throw>());
       break;
     case BinaryConsts::Rethrow:
+      cout << "rethrow" << endl;
       visitRethrow((curr = allocator.alloc<Rethrow>())->cast<Rethrow>());
       break;
     case BinaryConsts::ThrowRef:
+      cout << "throw_ref" << endl;
       visitThrowRef((curr = allocator.alloc<ThrowRef>())->cast<ThrowRef>());
       break;
     case BinaryConsts::MemorySize: {
+      cout << "memory.size" << endl;
       auto size = allocator.alloc<MemorySize>();
       curr = size;
       visitMemorySize(size);
       break;
     }
     case BinaryConsts::MemoryGrow: {
+      cout << "memory.grow" << endl;
       auto grow = allocator.alloc<MemoryGrow>();
       curr = grow;
       visitMemoryGrow(grow);
@@ -4119,6 +4157,7 @@ BinaryConsts::ASTNodes WasmBinaryReader::readExpression(Expression*& curr) {
     }
     case BinaryConsts::CallRef:
     case BinaryConsts::RetCallRef: {
+      cout << "call_ref/ret_call_Ref" << endl;
       auto call = allocator.alloc<CallRef>();
       call->isReturn = code == BinaryConsts::RetCallRef;
       curr = call;
@@ -4136,6 +4175,7 @@ BinaryConsts::ASTNodes WasmBinaryReader::readExpression(Expression*& curr) {
       break;
     }
     case BinaryConsts::Resume: {
+      cout << "resume" << endl;
       visitResume((curr = allocator.alloc<Resume>())->cast<Resume>());
       break;
     }
@@ -4144,6 +4184,7 @@ BinaryConsts::ASTNodes WasmBinaryReader::readExpression(Expression*& curr) {
       break;
     }
     case BinaryConsts::AtomicPrefix: {
+      cout << "atomic" << endl;
       code = static_cast<uint8_t>(getU32LEB());
       if (maybeVisitLoad(curr, code, BinaryConsts::AtomicPrefix)) {
         break;
@@ -4170,6 +4211,7 @@ BinaryConsts::ASTNodes WasmBinaryReader::readExpression(Expression*& curr) {
       break;
     }
     case BinaryConsts::MiscPrefix: {
+      cout << "misc" << endl;
       auto opcode = getU32LEB();
       if (maybeVisitTruncSat(curr, opcode)) {
         break;
@@ -4208,6 +4250,7 @@ BinaryConsts::ASTNodes WasmBinaryReader::readExpression(Expression*& curr) {
       break;
     }
     case BinaryConsts::SIMDPrefix: {
+      cout << "simd" << endl;
       auto opcode = getU32LEB();
       if (maybeVisitSIMDBinary(curr, opcode)) {
         break;
@@ -4246,6 +4289,7 @@ BinaryConsts::ASTNodes WasmBinaryReader::readExpression(Expression*& curr) {
       break;
     }
     case BinaryConsts::GCPrefix: {
+      cout << "gc" << endl;
       auto opcode = getU32LEB();
       if (maybeVisitRefI31(curr, opcode)) {
         break;
@@ -4336,18 +4380,23 @@ BinaryConsts::ASTNodes WasmBinaryReader::readExpression(Expression*& curr) {
     default: {
       // otherwise, the code is a subcode TODO: optimize
       if (maybeVisitBinary(curr, code)) {
+        cout << "binary" << endl;
         break;
       }
       if (maybeVisitUnary(curr, code)) {
+        cout << "unary" << endl;
         break;
       }
       if (maybeVisitConst(curr, code)) {
+        cout << "const" << endl;
         break;
       }
       if (maybeVisitLoad(curr, code, /*prefix=*/std::nullopt)) {
+        cout << "load" << endl;
         break;
       }
       if (maybeVisitStore(curr, code, /*prefix=*/std::nullopt)) {
+        cout << "store" << endl;
         break;
       }
       throwError("bad node code " + std::to_string(code));
@@ -4454,7 +4503,7 @@ void WasmBinaryReader::visitBlock(Block* curr) {
     processExpressions();
     size_t end = expressionStack.size();
     if (end < start) {
-      throwError("block cannot pop from outside");
+      throwError("1: block cannot pop from outside");
     }
     pushBlockElements(curr, curr->type, start);
     curr->finalize(curr->type,
@@ -4465,17 +4514,20 @@ void WasmBinaryReader::visitBlock(Block* curr) {
     breakTargetNames.erase(curr->name);
   }
 }
-
 // Gets a block of expressions. If it's just one, return that singleton.
 Expression* WasmBinaryReader::getBlockOrSingleton(Type type) {
   Name label = getNextLabel();
   breakStack.push_back({label, type});
   auto start = expressionStack.size();
+  cout << "block start = " << start << endl;
 
   processExpressions();
   size_t end = expressionStack.size();
+  cout << "block end = " << end << endl;
   if (end < start) {
-    throwError("block cannot pop from outside");
+    fflush(stdout);
+    fflush(stderr);
+    throwError("2: block cannot pop from outside");
   }
   breakStack.pop_back();
   auto* block = allocator.alloc<Block>();
