@@ -526,6 +526,7 @@ private:
     void visitRefFunc(RefFunc* curr) {}
     void visitRefEq(RefEq* curr) {}
     void visitTry(Try* curr) {}
+    void visitTryDelegate(TryDelegate* curr) {}
     void visitThrow(Throw* curr) {
       if (parent.tryDepth == 0) {
         parent.throws = true;

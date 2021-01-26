@@ -377,7 +377,8 @@ struct ControlFlowWalker : public PostWalker<SubType, VisitorType> {
         }
       } else {
         // an if or try, ignorable
-        assert(curr->template is<If>() || curr->template is<Try>());
+        assert(curr->template is<If>() || curr->template is<Try>() ||
+               curr->template is<TryDelegate>());
       }
       if (i == 0) {
         return nullptr;

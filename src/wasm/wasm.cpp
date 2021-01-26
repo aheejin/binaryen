@@ -196,6 +196,8 @@ const char* getExpressionName(Expression* curr) {
       return "ref.eq";
     case Expression::Id::TryId:
       return "try";
+    case Expression::Id::TryDelegateId:
+      return "try";
     case Expression::Id::ThrowId:
       return "throw";
     case Expression::Id::RethrowId:
@@ -966,6 +968,17 @@ void Try::finalize(Type type_) {
     allUnreachable &= catchBody->type == Type::unreachable;
   }
   if (type == Type::none && allUnreachable) {
+    type = Type::unreachable;
+  }
+}
+
+void TryDelegate::finalize() {
+  type = body->type;
+}
+
+void TryDelegate::finalize(Type type_) {
+  type = type_;
+  if (type == Type::none && body->type == Type::unreachable) {
     type = Type::unreachable;
   }
 }

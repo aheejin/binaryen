@@ -613,6 +613,7 @@ public:
     RefFuncId,
     RefEqId,
     TryId,
+    TryDelegateId,
     ThrowId,
     RethrowId,
     TupleMakeId,
@@ -1268,6 +1269,18 @@ public:
   bool hasCatchAll() const {
     return catchBodies.size() - catchEvents.size() == 1;
   }
+  void finalize();
+  void finalize(Type type_);
+};
+
+class TryDelegate : public SpecificExpression<Expression::TryDelegateId> {
+public:
+  TryDelegate() = default;
+  TryDelegate(MixedArena& allocator) {}
+
+  Expression* body;
+  Name name;
+
   void finalize();
   void finalize(Type type_);
 };

@@ -60,6 +60,7 @@ DELEGATE(RefIsNull);
 DELEGATE(RefFunc);
 DELEGATE(RefEq);
 DELEGATE(Try);
+DELEGATE(TryDelegate);
 DELEGATE(Throw);
 DELEGATE(Rethrow);
 DELEGATE(TupleMake);

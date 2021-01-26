@@ -1337,6 +1337,7 @@ public:
     return Literal(int32_t(left == right));
   }
   Flow visitTry(Try* curr) { WASM_UNREACHABLE("unimp"); }
+  Flow visitTryDelegate(TryDelegate* curr) { WASM_UNREACHABLE("unimp"); }
   Flow visitThrow(Throw* curr) {
     NOTE_ENTER("Throw");
     LiteralList arguments;
@@ -1909,6 +1910,10 @@ public:
   }
   Flow visitTry(Try* curr) {
     NOTE_ENTER("Try");
+    return Flow(NONCONSTANT_FLOW);
+  }
+  Flow visitTryDelegate(TryDelegate* curr) {
+    NOTE_ENTER("TryDelegate");
     return Flow(NONCONSTANT_FLOW);
   }
   Flow visitRethrow(Rethrow* curr) {
@@ -2959,6 +2964,11 @@ private:
         // This exception is not caught by this try-catch. Rethrow it.
         throw;
       }
+    }
+    Flow visitTryDelegate(TryDelegate* curr) {
+      NOTE_ENTER("TryDelegate");
+      // TODO implement
+      WASM_UNREACHABLE("unimp");
     }
     Flow visitRethrow(Rethrow* curr) {
       assert(exceptionStack.size() > curr->depth);

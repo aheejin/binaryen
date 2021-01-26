@@ -1724,6 +1724,12 @@ struct PrintExpressionContents
       o << ' ' << ResultType(curr->type);
     }
   }
+  void visitTryDelegate(TryDelegate* curr) {
+    printMedium(o, "try");
+    if (curr->type.isConcrete()) {
+      o << ' ' << ResultType(curr->type);
+    }
+  }
   void visitThrow(Throw* curr) {
     printMedium(o, "throw ");
     printName(curr->event, o);
@@ -2385,8 +2391,8 @@ struct PrintSExpression : public OverriddenVisitor<PrintSExpression> {
   //   ...
   //  )
   // )
-  // The parenthesis wrapping 'catch' is just a syntax and does not affect
-  // nested depths of instructions within.
+  // The parenthesis wrapping 'do' and 'catch' is just a syntax and does not
+  // affect nested depths of instructions within.
   void visitTry(Try* curr) {
     o << '(';
     PrintExpressionContents(currFunction, o).visit(curr);
@@ -2416,6 +2422,34 @@ struct PrintSExpression : public OverriddenVisitor<PrintSExpression> {
       decIndent();
       o << "\n";
     }
+    decIndent();
+    if (full) {
+      o << " ;; end try";
+    }
+  }
+  // try-delegate is written in the folded wat format as
+  // (try
+  //  (do
+  //   ...
+  //  )
+  //  (delegate $label)
+  // )
+  // The parenthesis wrapping 'do' and 'catch' is just a syntax and does not
+  // affect nested depths of instructions within.
+  void visitTryDelegate(TryDelegate* curr) {
+    o << '(';
+    PrintExpressionContents(currFunction, o).visit(curr);
+    incIndent();
+    doIndent(o, indent);
+    o << "(do";
+    incIndent();
+    maybePrintImplicitBlock(curr->body, true);
+    decIndent();
+    o << "\n";
+    doIndent(o, indent);
+    o << "(delegate ";
+    printName(curr->name, o);
+    o << "\n";
     decIndent();
     if (full) {
       o << " ;; end try";

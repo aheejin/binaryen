@@ -511,6 +511,12 @@ switch (DELEGATE_ID) {
     DELEGATE_END(Try);
     break;
   }
+  case Expression::Id::TryDelegateId: {
+    DELEGATE_START(TryDelegate);
+    DELEGATE_FIELD_NAME(TryDelegate, name);
+    DELEGATE_END(TryDelegate);
+    break;
+  }
   case Expression::Id::ThrowId: {
     DELEGATE_START(Throw);
     DELEGATE_FIELD_CHILD_VECTOR(Throw, operands);

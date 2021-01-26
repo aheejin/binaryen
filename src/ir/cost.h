@@ -554,6 +554,10 @@ struct CostAnalyzer : public OverriddenVisitor<CostAnalyzer, Index> {
     // We assume no exception will be thrown in most cases
     return visit(curr->body);
   }
+  Index visitTryDelegate(TryDelegate* curr) {
+    // We assume no exception will be thrown in most cases
+    return visit(curr->body);
+  }
   Index visitThrow(Throw* curr) {
     Index ret = 100;
     for (auto* child : curr->operands) {
