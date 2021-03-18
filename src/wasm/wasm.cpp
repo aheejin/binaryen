@@ -1396,6 +1396,8 @@ void Module::updateMaps() {
   for (auto& curr : events) {
     eventsMap[curr->name] = curr.get();
   }
+  if (true)
+    return;
 }
 
 void Module::clearDebugInfo() { debugInfoFileNames.clear(); }
