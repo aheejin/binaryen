@@ -116,6 +116,9 @@ def randomize_feature_opts():
                 FEATURE_OPTS.append(possible)
                 if possible in IMPLIED_FEATURE_OPTS:
                     FEATURE_OPTS.extend(IMPLIED_FEATURE_OPTS[possible])
+    if '--disable-exception-handling' in FEATURE_OPTS:
+        FEATURE_OPTS.remove('--disable-exception-handling')
+
     print('randomized feature opts:', ' '.join(FEATURE_OPTS))
 
 
@@ -168,23 +171,18 @@ def randomize_fuzz_settings():
 
 def init_important_initial_contents():
     FIXED_IMPORTANT_INITIAL_CONTENTS = [
-        # Perenially-important passes
-        os.path.join('lit', 'passes', 'optimize-instructions.wast'),
-        os.path.join('passes', 'optimize-instructions_fuzz-exec.wast'),
     ]
-    MANUAL_RECENT_INITIAL_CONTENTS = [
-        # Recently-added or modified passes. These can be added to and pruned
-        # frequently.
-        os.path.join('lit', 'passes', 'once-reduction.wast'),
-        os.path.join('passes', 'remove-unused-brs_enable-multivalue.wast'),
-        os.path.join('lit', 'passes', 'optimize-instructions-bulk-memory.wast'),
-        os.path.join('lit', 'passes', 'optimize-instructions-ignore-traps.wast'),
-        os.path.join('lit', 'passes', 'optimize-instructions-gc.wast'),
-        os.path.join('lit', 'passes', 'optimize-instructions-gc-iit.wast'),
-        os.path.join('lit', 'passes', 'optimize-instructions-call_ref.wast'),
-        os.path.join('lit', 'passes', 'inlining_splitting.wast'),
-        os.path.join('heap-types.wast'),
+    import glob
+    MANUAL_RECENT_INITIAL_CONTENTS = []
+    for f in glob.glob(shared.get_test_dir('lit') + '/passes/*-eh.wast'):
+        MANUAL_RECENT_INITIAL_CONTENTS.append(os.path.relpath(f, shared.options.binaryen_root + '/test'))
+    for f in glob.glob(shared.get_test_dir('lit') + '/*-eh.wast'):
+        MANUAL_RECENT_INITIAL_CONTENTS.append(os.path.relpath(f, shared.options.binaryen_root + '/test'))
+    MANUAL_RECENT_INITIAL_CONTENTS += [
+        'exception-handling.wast',
+        'lit/exec/eh.wast'
     ]
+
     RECENT_DAYS = 30
 
     # Returns the list of test wast/wat files added or modified within the
@@ -241,14 +239,6 @@ def init_important_initial_contents():
         print('  ' + test)
     print()
 
-    # We prompt the user only when there is no seed given. This fuzz_opt.py is
-    # often used with seed in a script called from wasm-reduce, in which case we
-    # should not pause for a user input.
-    if given_seed is None:
-        ret = input('Do you want to proceed with these initial contents? (Y/n) ').lower()
-        if ret != 'y' and ret != '':
-            sys.exit(1)
-
     initial_contents = FIXED_IMPORTANT_INITIAL_CONTENTS + recent_contents
     global IMPORTANT_INITIAL_CONTENTS
     IMPORTANT_INITIAL_CONTENTS = [os.path.join(shared.get_test_dir('.'), t) for t in initial_contents]
@@ -260,15 +250,9 @@ def pick_initial_contents():
     global INITIAL_CONTENTS
 
     INITIAL_CONTENTS = None
-    # half the time don't use any initial contents
-    if random.random() < 0.5:
-        return
     # some of the time use initial contents that are known to be especially
     # important
-    if random.random() < 0.5:
-        test_name = random.choice(IMPORTANT_INITIAL_CONTENTS)
-    else:
-        test_name = random.choice(all_tests)
+    test_name = random.choice(IMPORTANT_INITIAL_CONTENTS)
     print('initial contents:', test_name)
     if shared.options.auto_initial_contents:
         # when using auto initial contents, we look through the git history to

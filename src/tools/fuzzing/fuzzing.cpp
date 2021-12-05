@@ -170,10 +170,12 @@ void TranslateToFuzzReader::build() {
   modifyInitialFunctions();
   addImportLoggingSupport();
   // keep adding functions until we run out of input
+  /*
   while (!random.finished()) {
     auto* func = addFunction();
     addInvocations(func);
   }
+  */
   if (HANG_LIMIT > 0) {
     addHangLimitSupport();
   }
