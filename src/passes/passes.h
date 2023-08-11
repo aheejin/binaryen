@@ -24,6 +24,7 @@ class Pass;
 // Normal passes:
 Pass* createAbstractTypeRefiningPass();
 Pass* createAlignmentLoweringPass();
+Pass* createAnalyzeDelegatePass();
 Pass* createAsyncifyPass();
 Pass* createAvoidReinterpretsPass();
 Pass* createCoalesceLocalsPass();

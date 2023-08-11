@@ -18,6 +18,7 @@ set(passes_SOURCES
   test_passes.cpp
   AbstractTypeRefining.cpp
   AlignmentLowering.cpp
+  AnalyzeDelegate.cpp
   Asyncify.cpp
   AvoidReinterprets.cpp
   CoalesceLocals.cpp

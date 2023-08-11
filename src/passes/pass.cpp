@@ -89,6 +89,8 @@ void PassRegistry::registerPasses() {
   registerPass("alignment-lowering",
                "lower unaligned loads and stores to smaller aligned ones",
                createAlignmentLoweringPass);
+  registerPass(
+    "analyze-delegate", "analyze try-delegates", createAnalyzeDelegatePass);
   registerPass("asyncify",
                "async/await style transform, allowing pausing and resuming",
                createAsyncifyPass);
