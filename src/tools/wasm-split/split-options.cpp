@@ -163,6 +163,19 @@ WasmSplitOptions::WasmSplitOptions()
            splitFuncs = parseNameList(argument);
            hasSplitFuncs = true;
          })
+    .add("--split-on-call-graph-from",
+         "",
+         "A comma-separated list of entry functions. The module will be split "
+         "based on the call graph from these functions. Functions reachable "
+         "from these entries will be kept. You can also pass a file with one "
+         "function per line by passing @filename.",
+         WasmSplitOption,
+         {Mode::Split},
+         Options::Arguments::One,
+         [&](Options* o, const std::string& argument) {
+           splitOnCallGraphFrom = parseNameList(argument);
+           hasSplitOnCallGraphFrom = true;
+         })
     .add(
       "--manifest",
       "",
