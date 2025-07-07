@@ -19,7 +19,10 @@
 
 #include <fstream>
 
+#include "ir/element-utils.h"
 #include "ir/module-splitting.h"
+#include "ir/module-utils.h"
+#include "ir/names.h"
 #include "support/file.h"
 #include "support/name.h"
 #include "support/path.h"
@@ -166,11 +169,11 @@ ProfileData readProfile(const std::string& file) {
   return {hash, timestamps};
 }
 
-void getFunctionsToKeepAndSplit(Module& wasm,
-                                uint64_t wasmHash,
-                                const std::string& profileFile,
-                                std::set<Name>& keepFuncs,
-                                std::set<Name>& splitFuncs) {
+void splitUsingProfileData(Module& wasm,
+                           uint64_t wasmHash,
+                           const std::string& profileFile,
+                           std::set<Name>& keepFuncs,
+                           std::set<Name>& splitFuncs) {
   ProfileData profile = readProfile(profileFile);
   if (profile.hash != wasmHash) {
     Fatal() << "error: checksum in profile does not match module checksum. "
@@ -222,6 +225,77 @@ void writePlaceholderMap(
   }
 }
 
+void getReachableFunctions(Module& wasm,
+                           const std::set<Name>& entries,
+                           std::set<Name>& reachable,
+                           const std::set<Name>& stopAt) {
+  // Find all reachable functions from the entry points.
+  struct CallGraphInfo : public ModuleUtils::CallGraphPropertyAnalysis<
+                           CallGraphInfo>::FunctionInfo {
+    std::vector<HeapType> indirectCallTypes;
+  };
+  ModuleUtils::CallGraphPropertyAnalysis<CallGraphInfo> analysis(
+    wasm, [&](Function* func, CallGraphInfo& info) {
+      if (func->imported()) {
+        return;
+      }
+      // CallGraphPropertyAnalysis's internal walker finds direct calls. We
+      // just need to find indirect call types here.
+      struct Walker : PostWalker<Walker> {
+        CallGraphInfo& info;
+        Walker(CallGraphInfo& info) : info(info) {}
+        void visitCallIndirect(CallIndirect* curr) {
+          info.indirectCallTypes.push_back(curr->heapType);
+        }
+        void visitCallRef(CallRef* curr) {
+          if (curr->target->type.isRef()) {
+            info.indirectCallTypes.push_back(curr->target->type.getHeapType());
+          }
+        }
+      };
+      Walker(info).walk(func->body);
+    });
+
+  std::set<Name> tableFuncs;
+  ElementUtils::iterAllElementFunctionNames(
+    &wasm, [&](Name name) { tableFuncs.insert(name); });
+
+  std::vector<Name> worklist;
+  for (const auto& entry : entries) {
+    if (wasm.getFunctionOrNull(entry)) {
+      reachable.insert(entry);
+      worklist.push_back(entry);
+    }
+  }
+
+  while (!worklist.empty()) {
+    Name currName = worklist.back();
+    worklist.pop_back();
+    Function* func = wasm.getFunction(currName);
+    auto& info = analysis.map[func];
+    for (auto* target : info.callsTo) {
+      if (reachable.find(target->name) == reachable.end() &&
+          stopAt.find(target->name) == stopAt.end()) {
+        reachable.insert(target->name);
+        worklist.push_back(target->name);
+      }
+    }
+    for (auto& type : info.indirectCallTypes) {
+      assert(type.isSignature());
+      for (auto& funcName : tableFuncs) {
+        Function* f = wasm.getFunction(funcName);
+        if (!f->imported() && HeapType::isSubType(f->type, type)) {
+          if (reachable.find(f->name) == reachable.end() &&
+              stopAt.find(f->name) == stopAt.end()) {
+            reachable.insert(f->name);
+            worklist.push_back(f->name);
+          }
+        }
+      }
+    }
+  }
+}
+
 void splitModule(const WasmSplitOptions& options) {
   Module wasm;
   parseInput(wasm, options);
@@ -230,10 +304,65 @@ void splitModule(const WasmSplitOptions& options) {
   std::set<Name> keepFuncs;
   std::set<Name> splitFuncs;
 
-  if (options.profileFile.size()) {
+  if (options.hasSplitOnCallGraphFrom || options.hasSplitOnCallGraphTo) {
+    // Validate entry points exist.
+    if (options.hasSplitOnCallGraphFrom) {
+      for (auto& funcName : options.splitOnCallGraphFrom) {
+        if (!wasm.getFunctionOrNull(funcName)) {
+          if (!options.quiet) {
+            std::cerr << "warning: entry function " << funcName
+                      << " does not exist\n";
+          }
+        }
+      }
+    }
+    if (options.hasSplitOnCallGraphTo) {
+      for (auto& funcName : options.splitOnCallGraphTo) {
+        if (!wasm.getFunctionOrNull(funcName)) {
+          if (!options.quiet) {
+            std::cerr << "warning: entry function " << funcName
+                      << " does not exist\n";
+          }
+        }
+      }
+    }
+
+    // FIXME We add the default entry points
+    std::set<Name> splitOnCallGraphFrom = options.splitOnCallGraphFrom;
+    splitOnCallGraphFrom.insert("main");
+    splitOnCallGraphFrom.insert("_start");
+    splitOnCallGraphFrom.insert("__wasm_call_ctors");
+
+    std::set<Name> fromReachable, toReachable;
+    if (options.hasSplitOnCallGraphFrom) {
+      getReachableFunctions(wasm,
+                            splitOnCallGraphFrom,
+                            fromReachable,
+                            options.splitOnCallGraphTo);
+    }
+
+    /*
+    if (options.hasSplitOnCallGraphTo) {
+      std::set<Name> dummy;
+      getReachableFunctions(wasm,
+                            options.splitOnCallGraphTo,
+                            toReachable,
+                            dummy);
+    }
+    */
+
+    ModuleUtils::iterDefinedFunctions(wasm, [&](Function* func) {
+      if (fromReachable.count(func->name)) {
+        keepFuncs.insert(func->name);
+      } else {
+        splitFuncs.insert(func->name);
+      }
+    });
+
+  } else if (options.profileFile.size()) {
     // Use the profile to set `keepFuncs` and `splitFuncs`.
     uint64_t hash = hashFile(options.inputFiles[0]);
-    getFunctionsToKeepAndSplit(
+    splitUsingProfileData(
       wasm, hash, options.profileFile, keepFuncs, splitFuncs);
   } else {
     // Normally the default is to keep each function, but if --keep-funcs is the
@@ -301,23 +430,11 @@ void splitModule(const WasmSplitOptions& options) {
   }
 
   // Dump the kept and split functions if we are verbose.
-  if (options.verbose) {
-    auto printCommaSeparated = [&](auto funcs) {
-      for (auto it = funcs.begin(); it != funcs.end(); ++it) {
-        if (it != funcs.begin()) {
-          std::cout << ", ";
-        }
-        std::cout << *it;
-      }
-    };
-
-    std::cout << "Keeping functions: ";
-    printCommaSeparated(keepFuncs);
-    std::cout << "\n";
-
-    std::cout << "Splitting out functions: ";
-    printCommaSeparated(splitFuncs);
-    std::cout << "\n";
+  if (options.verbose &&
+      (options.hasSplitOnCallGraphFrom || options.hasSplitOnCallGraphTo)) {
+    std::cout << "# of functions = " << wasm.functions.size() << "\n";
+    std::cout << "Primary functions = " << keepFuncs.size() << "\n";
+    std::cout << "Secondary functions = " << splitFuncs.size() << "\n";
   }
 
 #ifndef NDEBUG
@@ -572,8 +689,7 @@ void printReadableProfile(const WasmSplitOptions& options) {
   std::set<Name> splitFuncs;
 
   uint64_t hash = hashFile(wasmFile);
-  getFunctionsToKeepAndSplit(
-    wasm, hash, options.profileFile, keepFuncs, splitFuncs);
+  splitUsingProfileData(wasm, hash, options.profileFile, keepFuncs, splitFuncs);
 
   auto printFnSet = [&](auto funcs, std::string prefix) {
     for (auto it = funcs.begin(); it != funcs.end(); ++it) {
