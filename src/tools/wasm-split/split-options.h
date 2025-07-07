@@ -60,6 +60,10 @@ struct WasmSplitOptions : ToolOptions {
   std::set<Name> splitFuncs;
   bool hasKeepFuncs = false;
   bool hasSplitFuncs = false;
+  std::set<Name> splitOnCallGraphFrom;
+  bool hasSplitOnCallGraphFrom = false;
+  std::set<Name> splitOnCallGraphTo;
+  bool hasSplitOnCallGraphTo = false;
 
   std::vector<std::string> inputFiles;
   std::string output;

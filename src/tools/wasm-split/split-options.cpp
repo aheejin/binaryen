@@ -163,6 +163,33 @@ WasmSplitOptions::WasmSplitOptions()
            splitFuncs = parseNameList(argument);
            hasSplitFuncs = true;
          })
+    .add("--split-on-call-graph-from",
+         "",
+         "A comma-separated list of entry functions for the primary module. "
+         "Functions reachable from these entries will be kept. If this option "
+         "is provided, other functions will be split out by default. You can "
+         "also pass a file with one function per line by passing @filename.",
+         WasmSplitOption,
+         {Mode::Split},
+         Options::Arguments::One,
+         [&](Options* o, const std::string& argument) {
+           splitOnCallGraphFrom = parseNameList(argument);
+           hasSplitOnCallGraphFrom = true;
+         })
+    .add("--split-on-call-graph-to",
+         "",
+         "A comma-separated list of functions that will be entry points in the "
+         "secondary module. These functions and all functions reachable from "
+         "them will be split out. This takes precedence over "
+         "--split-on-call-graph-from. You can also pass a file with one "
+         "function per line by passing @filename.",
+         WasmSplitOption,
+         {Mode::Split},
+         Options::Arguments::One,
+         [&](Options* o, const std::string& argument) {
+           splitOnCallGraphTo = parseNameList(argument);
+           hasSplitOnCallGraphTo = true;
+         })
     .add(
       "--manifest",
       "",
