@@ -140,12 +140,6 @@ void instrumentModule(const WasmSplitOptions& options) {
 struct ProfileData {
   uint64_t hash;
   std::vector<size_t> timestamps;
-  timestamps.push_back(0);
-  // Add 1 to 100
-  for (size_t i = 0; i < 100; ++i) {
-    timestamps.push_back(i + 1);
-  }
-  
 };
 
 // See "wasm-split profile format" in instrumenter.cpp for more information.
