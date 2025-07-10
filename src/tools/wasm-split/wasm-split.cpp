@@ -225,7 +225,7 @@ void splitModule(const WasmSplitOptions& options) {
     // Use call graph analysis to set `keepFuncs` and `splitFuncs`.
     // All defined functions are initially considered for splitting.
     ModuleUtils::iterDefinedFunctions(
-      wasm, & { splitFuncs.insert(func->name); });
+      wasm, [&](Function* func) { splitFuncs.insert(func->name); });
 
     // The entry functions must be kept.
     for (auto& funcName : options.splitOnCallGraphFrom) {
@@ -246,17 +246,17 @@ void splitModule(const WasmSplitOptions& options) {
       std::vector<HeapType> indirectCallTypes;
     };
     ModuleUtils::ParallelFunctionAnalysis<CallGraphInfo> analysis(
-      wasm, & {
+      wasm, [&](Function *func, CallGraphInfo &info) {
         if (func->imported()) {
           return;
         }
         struct Walker : PostWalker<Walker> {
-          Module* module;
+          Module* wasm;
           CallGraphInfo& info;
-          Walker(Module* module, CallGraphInfo& info)
-            : module(module), info(info) {}
+          Walker(Module* wasm, CallGraphInfo& info)
+            : wasm(wasm), info(info) {}
           void visitCall(Call* curr) {
-            info.callsTo.insert(module->getFunction(curr->target));
+            info.callsTo.insert(wasm->getFunction(curr->target));
           }
           void visitCallIndirect(CallIndirect* curr) {
             info.indirectCallTypes.push_back(curr->heapType);
