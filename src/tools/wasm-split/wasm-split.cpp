@@ -169,11 +169,11 @@ ProfileData readProfile(const std::string& file) {
   return {hash, timestamps};
 }
 
-void getFunctionsToKeepAndSplit(Module& wasm,
-                                uint64_t wasmHash,
-                                const std::string& profileFile,
-                                std::set<Name>& keepFuncs,
-                                std::set<Name>& splitFuncs) {
+void splitUsingProfileData(Module& wasm,
+                           uint64_t wasmHash,
+                           const std::string& profileFile,
+                           std::set<Name>& keepFuncs,
+                           std::set<Name>& splitFuncs) {
   ProfileData profile = readProfile(profileFile);
   if (profile.hash != wasmHash) {
     Fatal() << "error: checksum in profile does not match module checksum. "
@@ -213,6 +213,94 @@ void writePlaceholderMap(const std::map<size_t, Name> placeholderMap,
   }
 }
 
+void splitUsingCallGraph(Module& wasm,
+                         const WasmSplitOptions& options,
+                         std::set<Name>& keepFuncs,
+                         std::set<Name>& splitFuncs) {
+  // Use call graph analysis to set `keepFuncs` and `splitFuncs`.
+  // All defined functions are initially considered for splitting.
+  ModuleUtils::iterDefinedFunctions(
+    wasm, [&](Function* func) { splitFuncs.insert(func->name); });
+
+  // The entry functions must be kept.
+  for (auto& funcName : options.splitOnCallGraphFrom) {
+    if (wasm.getFunctionOrNull(funcName)) {
+      keepFuncs.insert(funcName);
+      splitFuncs.erase(funcName);
+    } else {
+      if (!options.quiet) {
+        std::cerr << "warning: entry function " << funcName
+                  << " does not exist\n";
+      }
+    }
+  }
+
+  // Find all reachable functions from the entry points.
+  struct CallGraphInfo : public ModuleUtils::CallGraphPropertyAnalysis<
+                           CallGraphInfo>::FunctionInfo {
+    std::vector<HeapType> indirectCallTypes;
+  };
+  ModuleUtils::CallGraphPropertyAnalysis<CallGraphInfo> analysis(
+    wasm, [&](Function* func, CallGraphInfo& info) {
+      if (func->imported()) {
+        return;
+      }
+      // CallGraphPropertyAnalysis's internal walker finds direct calls. We
+      // just need to find indirect call types here.
+      struct Walker : PostWalker<Walker> {
+        CallGraphInfo& info;
+        Walker(CallGraphInfo& info) : info(info) {}
+        void visitCallIndirect(CallIndirect* curr) {
+          info.indirectCallTypes.push_back(curr->heapType);
+        }
+        void visitCallRef(CallRef* curr) {
+          if (curr->target->type.isRef()) {
+            info.indirectCallTypes.push_back(curr->target->type.getHeapType());
+          }
+        }
+      };
+      Walker(info).walk(func->body);
+    });
+
+  std::vector<Name> worklist;
+  for (const auto& entry : keepFuncs) {
+    worklist.push_back(entry);
+  }
+
+  while (!worklist.empty()) {
+    Name currName = worklist.back();
+    worklist.pop_back();
+
+    Function* func = wasm.getFunction(currName);
+    auto& info = analysis.map[func];
+
+    for (auto* target : info.callsTo) {
+      if (keepFuncs.find(target->name) == keepFuncs.end()) {
+        keepFuncs.insert(target->name);
+        splitFuncs.erase(target->name);
+        worklist.push_back(target->name);
+      }
+    }
+
+    for (auto& type : info.indirectCallTypes) {
+      if (!type.isSignature()) {
+        continue;
+      }
+      // This is a conservative analysis. If there is an indirect call, we
+      // assume it can call any function with a compatible signature.
+      for (auto& f : wasm.functions) {
+        if (!f->imported() && HeapType::isSubType(f->type, type)) {
+          if (keepFuncs.find(f->name) == keepFuncs.end()) {
+            keepFuncs.insert(f->name);
+            splitFuncs.erase(f->name);
+            worklist.push_back(f->name);
+          }
+        }
+      }
+    }
+  }
+}
+
 void splitModule(const WasmSplitOptions& options) {
   Module wasm;
   parseInput(wasm, options);
@@ -222,96 +310,11 @@ void splitModule(const WasmSplitOptions& options) {
   std::set<Name> splitFuncs;
 
   if (options.hasSplitOnCallGraphFrom) {
-    // Use call graph analysis to set `keepFuncs` and `splitFuncs`.
-    // All defined functions are initially considered for splitting.
-    ModuleUtils::iterDefinedFunctions(
-      wasm, [&](Function* func) { splitFuncs.insert(func->name); });
-
-    // The entry functions must be kept.
-    for (auto& funcName : options.splitOnCallGraphFrom) {
-      if (wasm.getFunctionOrNull(funcName)) {
-        keepFuncs.insert(funcName);
-        splitFuncs.erase(funcName);
-      } else {
-        if (!options.quiet) {
-          std::cerr << "warning: entry function " << funcName
-                    << " does not exist\n";
-        }
-      }
-    }
-
-    // Find all reachable functions from the entry points.
-    struct CallGraphInfo {
-      std::set<Function*> callsTo;
-      std::vector<HeapType> indirectCallTypes;
-    };
-    ModuleUtils::ParallelFunctionAnalysis<CallGraphInfo> analysis(
-      wasm, [&](Function *func, CallGraphInfo &info) {
-        if (func->imported()) {
-          return;
-        }
-        struct Walker : PostWalker<Walker> {
-          Module* wasm;
-          CallGraphInfo& info;
-          Walker(Module* wasm, CallGraphInfo& info)
-            : wasm(wasm), info(info) {}
-          void visitCall(Call* curr) {
-            info.callsTo.insert(wasm->getFunction(curr->target));
-          }
-          void visitCallIndirect(CallIndirect* curr) {
-            info.indirectCallTypes.push_back(curr->heapType);
-          }
-          void visitCallRef(CallRef* curr) {
-            if (curr->target->type.isRef()) {
-              info.indirectCallTypes.push_back(
-                curr->target->type.getHeapType());
-            }
-          }
-        };
-        Walker(&wasm, info).walk(func->body);
-      });
-
-    std::vector<Name> worklist;
-    for (const auto& entry : keepFuncs) {
-      worklist.push_back(entry);
-    }
-
-    while (!worklist.empty()) {
-      Name currName = worklist.back();
-      worklist.pop_back();
-
-      Function* func = wasm.getFunction(currName);
-      auto& info = analysis.map[func];
-
-      for (auto* target : info.callsTo) {
-        if (keepFuncs.find(target->name) == keepFuncs.end()) {
-          keepFuncs.insert(target->name);
-          splitFuncs.erase(target->name);
-          worklist.push_back(target->name);
-        }
-      }
-
-      for (auto& type : info.indirectCallTypes) {
-        if (!type.isSignature()) {
-          continue;
-        }
-        // This is a conservative analysis. If there is an indirect call, we
-        // assume it can call any function with a compatible signature.
-        for (auto& f : wasm.functions) {
-          if (!f->imported() && Type::isSubType(f->type, type)) {
-            if (keepFuncs.find(f->name) == keepFuncs.end()) {
-              keepFuncs.insert(f->name);
-              splitFuncs.erase(f->name);
-              worklist.push_back(f->name);
-            }
-          }
-        }
-      }
-    }
+    splitUsingCallGraph(wasm, options, keepFuncs, splitFuncs);
   } else if (options.profileFile.size()) {
     // Use the profile to set `keepFuncs` and `splitFuncs`.
     uint64_t hash = hashFile(options.inputFiles[0]);
-    getFunctionsToKeepAndSplit(
+    splitUsingProfileData(
       wasm, hash, options.profileFile, keepFuncs, splitFuncs);
   } else {
     // Normally the default is to keep each function, but if --keep-funcs is the
@@ -629,8 +632,7 @@ void printReadableProfile(const WasmSplitOptions& options) {
   std::set<Name> splitFuncs;
 
   uint64_t hash = hashFile(wasmFile);
-  getFunctionsToKeepAndSplit(
-    wasm, hash, options.profileFile, keepFuncs, splitFuncs);
+  splitUsingProfileData(wasm, hash, options.profileFile, keepFuncs, splitFuncs);
 
   auto printFnSet = [&](auto funcs, std::string prefix) {
     for (auto it = funcs.begin(); it != funcs.end(); ++it) {
