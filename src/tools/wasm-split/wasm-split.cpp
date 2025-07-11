@@ -216,9 +216,13 @@ void writePlaceholderMap(const std::map<size_t, Name> placeholderMap,
 void splitUsingCallGraph(Module& wasm,
                          const WasmSplitOptions& options,
                          std::set<Name>& keepFuncs,
-                         std::set<Name>& splitFuncs) {
+                         std::set<Name>& splitFuncs,
+                         size_t* directReach,
+                         size_t* indirectReach) {
   // Use call graph analysis to set `keepFuncs` and `splitFuncs`.
   // All defined functions are initially considered for splitting.
+  *directReach = 0;
+  *indirectReach = 0;
   ModuleUtils::iterDefinedFunctions(
     wasm, [&](Function* func) { splitFuncs.insert(func->name); });
 
@@ -279,6 +283,7 @@ void splitUsingCallGraph(Module& wasm,
         keepFuncs.insert(target->name);
         splitFuncs.erase(target->name);
         worklist.push_back(target->name);
+        (*directReach)++;
       }
     }
 
@@ -294,6 +299,7 @@ void splitUsingCallGraph(Module& wasm,
             keepFuncs.insert(f->name);
             splitFuncs.erase(f->name);
             worklist.push_back(f->name);
+            (*indirectReach)++;
           }
         }
       }
@@ -308,9 +314,12 @@ void splitModule(const WasmSplitOptions& options) {
   // All defined functions will be in one set or the other.
   std::set<Name> keepFuncs;
   std::set<Name> splitFuncs;
+  size_t directReach = 0;
+  size_t indirectReach = 0;
 
   if (options.hasSplitOnCallGraphFrom) {
-    splitUsingCallGraph(wasm, options, keepFuncs, splitFuncs);
+    splitUsingCallGraph(
+      wasm, options, keepFuncs, splitFuncs, &directReach, &indirectReach);
   } else if (options.profileFile.size()) {
     // Use the profile to set `keepFuncs` and `splitFuncs`.
     uint64_t hash = hashFile(options.inputFiles[0]);
@@ -399,6 +408,12 @@ void splitModule(const WasmSplitOptions& options) {
     std::cout << "Splitting out functions: ";
     printCommaSeparated(splitFuncs);
     std::cout << "\n";
+    if (options.hasSplitOnCallGraphFrom) {
+      std::cout << "Kept " << directReach
+                << " functions in the primary module due to direct calls.\n";
+      std::cout << "Kept " << indirectReach
+                << " functions in the primary module due to indirect calls.\n";
+    }
   }
 
 #ifndef NDEBUG
