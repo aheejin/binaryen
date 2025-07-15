@@ -384,9 +384,11 @@ void splitModule(const WasmSplitOptions& options) {
       if (inTo) {
         splitFuncs.insert(func->name);
         if (inFrom && !options.quiet) {
+          /*
           std::cerr << "warning: function " << func->name
                     << " is reachable from both primary and secondary entries; "
                        "it will be split out.\n";
+                       */
         }
       } else if (inFrom) {
         keepFuncs.insert(func->name);
@@ -467,12 +469,14 @@ void splitModule(const WasmSplitOptions& options) {
 
   // Dump the kept and split functions if we are verbose.
   if (options.verbose) {
+    /*
     std::cout << "Directly reachable:" << std::endl;
     for (auto &f : fromDirectlyReachable)
       std::cout << f << std::endl;
     std::cout << "Indirectly reachable:" << std::endl;
     for (auto &f : fromIndirectlyReachable)
       std::cout << f << std::endl;
+      */
 
     if (options.hasSplitOnCallGraphFrom || options.hasSplitOnCallGraphTo) {
       size_t keptEntries = 0, keptDirect = 0, keptIndirect = 0;
