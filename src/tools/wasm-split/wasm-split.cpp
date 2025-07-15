@@ -468,56 +468,11 @@ void splitModule(const WasmSplitOptions& options) {
   }
 
   // Dump the kept and split functions if we are verbose.
-  if (options.verbose) {
-    /*
-    std::cout << "Directly reachable:" << std::endl;
-    for (auto &f : fromDirectlyReachable)
-      std::cout << f << std::endl;
-    std::cout << "Indirectly reachable:" << std::endl;
-    for (auto &f : fromIndirectlyReachable)
-      std::cout << f << std::endl;
-      */
-
-    if (options.hasSplitOnCallGraphFrom || options.hasSplitOnCallGraphTo) {
-      size_t keptEntries = 0, keptDirect = 0, keptIndirect = 0;
-      for (auto& f : keepFuncs) {
-        if (options.splitOnCallGraphFrom.count(f)) {
-          keptEntries++;
-        } else if (fromDirectlyReachable.count(f)) {
-          keptDirect++;
-        } else if (fromIndirectlyReachable.count(f)) {
-          keptIndirect++;
-        }
-      }
-
-      size_t splitUnreachable = 0, splitPrecedence = 0;
-      for (auto& f : splitFuncs) {
-        if (fromReachable.count(f)) {
-          // This function is reachable from the primary module's entry
-          // points, but is being split out. This must be because it is also
-          // reachable from the secondary module's entry points, which take
-          // precedence.
-          splitPrecedence++;
-        } else {
-          // This function is not reachable from the primary module's entry
-          // points.
-          splitUnreachable++;
-        }
-      }
-
-      std::cout << "Kept " << keptEntries
-                << " entry functions in the primary module.\n";
-      std::cout << "Kept " << keptDirect
-                << " functions in the primary module due to direct calls.\n";
-      std::cout << "Kept " << keptIndirect
-                << " functions in the primary module due to indirect calls.\n";
-      std::cout << "Split " << splitUnreachable
-                << " functions to the secondary module because they were not "
-                   "reachable from primary entries.\n";
-      std::cout << "Split " << splitPrecedence
-                << " functions to the secondary module because they were "
-                   "dominated by second entries.\n";
-    }
+  if (options.verbose &&
+      (options.hasSplitOnCallGraphFrom || options.hasSplitOnCallGraphTo)) {
+    std::cout << "# of functions = " << wasm.functions.size() << "\n";
+    std::cout << "Primary functions = " << keepFuncs.size() << "\n";
+    std::cout << "Secondary functions = " << splitFuncs.size() << "\n";
   }
 
 #ifndef NDEBUG
