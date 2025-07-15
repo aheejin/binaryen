@@ -217,7 +217,8 @@ void writePlaceholderMap(const std::map<size_t, Name> placeholderMap,
 void getReachableFunctions(Module& wasm,
                            const std::set<Name>& entries,
                            std::set<Name>& directlyReachable,
-                           std::set<Name>& indirectlyReachable) {
+                           std::set<Name>& indirectlyReachable,
+                           const std::set<Name>& stopAt) {
   // Find all reachable functions from the entry points.
   struct CallGraphInfo : public ModuleUtils::CallGraphPropertyAnalysis<
                            CallGraphInfo>::FunctionInfo {
@@ -266,7 +267,8 @@ void getReachableFunctions(Module& wasm,
       Function* func = wasm.getFunction(currName);
       auto& info = analysis.map[func];
       for (auto* target : info.callsTo) {
-        if (reachable.find(target->name) == reachable.end()) {
+        if (reachable.find(target->name) == reachable.end() &&
+            stopAt.find(target->name) == stopAt.end()) {
           reachable.insert(target->name);
           worklist.push_back(target->name);
         }
@@ -278,7 +280,8 @@ void getReachableFunctions(Module& wasm,
           for (auto& funcName : tableFuncs) {
             Function* f = wasm.getFunction(funcName);
             if (!f->imported() && HeapType::isSubType(f->type, type)) {
-              if (reachable.find(f->name) == reachable.end()) {
+              if (reachable.find(f->name) == reachable.end() &&
+                  stopAt.find(f->name) == stopAt.end()) {
                 reachable.insert(f->name);
                 worklist.push_back(f->name);
               }
@@ -351,7 +354,8 @@ void splitModule(const WasmSplitOptions& options) {
       getReachableFunctions(wasm,
                             options.splitOnCallGraphFrom,
                             fromDirectlyReachable,
-                            fromIndirectlyReachable);
+                            fromIndirectlyReachable,
+                            options.splitOnCallGraphTo);
     }
     fromReachable = fromDirectlyReachable;
     fromReachable.insert(fromIndirectlyReachable.begin(),
@@ -361,10 +365,12 @@ void splitModule(const WasmSplitOptions& options) {
 
     std::set<Name> toDirectlyReachable, toIndirectlyReachable;
     if (options.hasSplitOnCallGraphTo) {
+      std::set<Name> dummy;
       getReachableFunctions(wasm,
                             options.splitOnCallGraphTo,
                             toDirectlyReachable,
-                            toIndirectlyReachable);
+                            toIndirectlyReachable,
+                            dummy);
     }
     std::set<Name> toReachable = toDirectlyReachable;
     toReachable.insert(toIndirectlyReachable.begin(),
@@ -377,13 +383,11 @@ void splitModule(const WasmSplitOptions& options) {
       bool inTo = toReachable.count(func->name);
       if (inTo) {
         splitFuncs.insert(func->name);
-        /*
         if (inFrom && !options.quiet) {
           std::cerr << "warning: function " << func->name
                     << " is reachable from both primary and secondary entries; "
                        "it will be split out.\n";
         }
-        */
       } else if (inFrom) {
         keepFuncs.insert(func->name);
       } else {
@@ -463,14 +467,13 @@ void splitModule(const WasmSplitOptions& options) {
 
   // Dump the kept and split functions if we are verbose.
   if (options.verbose) {
-    /*
     std::cout << "Directly reachable:" << std::endl;
     for (auto &f : fromDirectlyReachable)
       std::cout << f << std::endl;
     std::cout << "Indirectly reachable:" << std::endl;
     for (auto &f : fromIndirectlyReachable)
       std::cout << f << std::endl;
-      */
+
     if (options.hasSplitOnCallGraphFrom || options.hasSplitOnCallGraphTo) {
       size_t keptEntries = 0, keptDirect = 0, keptIndirect = 0;
       for (auto& f : keepFuncs) {
@@ -508,8 +511,8 @@ void splitModule(const WasmSplitOptions& options) {
                 << " functions to the secondary module because they were not "
                    "reachable from primary entries.\n";
       std::cout << "Split " << splitPrecedence
-                << " functions to the secondary module because they were also "
-                   "reachable from secondary entries.\n";
+                << " functions to the secondary module because they were "
+                   "dominated by second entries.\n";
     }
   }
 
