@@ -334,8 +334,8 @@ struct ModuleSplitter {
   void setupJSPI();
   void moveSecondaryFunctions();
   void thunkExportedSecondaryFunctions();
-  void indirectCallsToSecondaryFunctions();
   void indirectReferencesToSecondaryFunctions();
+  void indirectCallsToSecondaryFunctions();
   void exportImportCalledPrimaryFunctions();
   void setupTablePatching();
   void shareImportableItems();
@@ -590,22 +590,43 @@ void ModuleSplitter::indirectReferencesToSecondaryFunctions() {
   // perform a direct call to the original referent. The direct calls in the
   // thunks will be handled like all other cross-module calls later, in
   // |indirectCallsToSecondaryFunctions|.
+  using RefFuncMap = InsertOrderedMap<Name, std::vector<RefFunc*>>;
   struct Gatherer : public PostWalker<Gatherer> {
     ModuleSplitter& parent;
 
-    Gatherer(ModuleSplitter& parent) : parent(parent) {}
+    Gatherer(ModuleSplitter& parent, RefFuncMap& refFuncMap)
+      : parent(parent), refFuncMap(refFuncMap) {}
 
     // Collect RefFuncs in a map from the function name to all RefFuncs that
     // refer to it. We only collect this for secondary funcs.
-    InsertOrderedMap<Name, std::vector<RefFunc*>> map;
+    RefFuncMap& refFuncMap;
 
     void visitRefFunc(RefFunc* curr) {
       if (parent.secondaryFuncs.count(curr->func)) {
-        map[curr->func].push_back(curr);
+        refFuncMap[curr->func].push_back(curr);
       }
     }
-  } gatherer(*this);
-  gatherer.walkModule(&primary);
+  };
+
+  RefFuncMap refFuncMap;
+  Gatherer gatherer(*this, refFuncMap);
+  gatherer.walkModuleCode(&primary);
+
+  ModuleUtils::ParallelFunctionAnalysis<RefFuncMap> funcGatherer(
+    primary, [&](Function* func, RefFuncMap& refFuncMap) {
+      if (func->imported()) {
+        return;
+      }
+      Gatherer gatherer(*this, refFuncMap);
+      gatherer.walkFunction(func);
+    });
+
+  for (auto& [_, funcRefFuncMap] : funcGatherer.map) {
+    for (auto& [referee, refFuncs] : funcRefFuncMap) {
+      auto& currRefFuncs = refFuncMap[referee];
+      currRefFuncs.insert(currRefFuncs.end(), refFuncs.begin(), refFuncs.end());
+    }
+  }
 
   // Ignore references to secondary functions that occur in the active segment
   // that will contain the imported placeholders. Indirect calls to table slots
@@ -624,7 +645,7 @@ void ModuleSplitter::indirectReferencesToSecondaryFunctions() {
   // them.
   Builder builder(primary);
   // Generate the new trampoline function and add it to the module.
-  for (auto& [name, refFuncs] : gatherer.map) {
+  for (auto& [name, refFuncs] : gatherer.refFuncMap) {
     // Find the relevant (non-ignored) RefFuncs. If there are none, we can skip
     // creating a thunk entirely.
     std::vector<RefFunc*> relevantRefFuncs;
@@ -649,30 +670,44 @@ void ModuleSplitter::indirectReferencesToSecondaryFunctions() {
 void ModuleSplitter::indirectCallsToSecondaryFunctions() {
   // Update direct calls of secondary functions to be indirect calls of their
   // corresponding table indices instead.
-  struct CallIndirector : public PostWalker<CallIndirector> {
-    ModuleSplitter& parent;
-    Builder builder;
-    CallIndirector(ModuleSplitter& parent)
-      : parent(parent), builder(parent.primary) {}
-    // Avoid visitRefFunc on element segment data
-    void walkElementSegment(ElementSegment* segment) {}
-    void visitCall(Call* curr) {
-      if (!parent.secondaryFuncs.count(curr->target)) {
+  using CallPtrs = std::vector<Expression**>;
+  ModuleUtils::ParallelFunctionAnalysis<CallPtrs> callIndirectFinder(
+    primary, [&](Function* func, CallPtrs& callps) {
+      struct CallIndirectFinder : public PostWalker<CallIndirectFinder> {
+        ModuleSplitter& parent;
+        CallPtrs& callps;
+        CallIndirectFinder(ModuleSplitter& parent, CallPtrs& callps)
+          : parent(parent), callps(callps) {}
+        void visitCall(Call* curr) {
+          if (parent.secondaryFuncs.count(curr->target)) {
+            callps.push_back(getCurrentPointer());
+          }
+        }
+      };
+      if (func->imported()) {
         return;
       }
-      auto* func = parent.secondary.getFunction(curr->target);
-      auto tableSlot = parent.tableManager.getSlot(curr->target, func->type);
+      CallIndirectFinder(*this, callps).walkFunction(func);
+    });
 
-      replaceCurrent(parent.maybeLoadSecondary(
-        builder,
-        builder.makeCallIndirect(tableSlot.tableName,
-                                 tableSlot.makeExpr(parent.primary),
-                                 curr->operands,
-                                 func->type,
-                                 curr->isReturn)));
-    }
-  };
-  CallIndirector(*this).walkModule(&primary);
+  CallPtrs callps;
+  for (auto& [_, funcCallps] : callIndirectFinder.map) {
+    callps.insert(callps.end(), funcCallps.begin(), funcCallps.end());
+  }
+
+  for (auto* callp : callps) {
+    Builder builder(primary);
+    Call* call = (*callp)->cast<Call>();
+    auto* func = secondary.getFunction(call->target);
+    auto tableSlot = tableManager.getSlot(call->target, func->type);
+    *callp =
+      maybeLoadSecondary(builder,
+                         builder.makeCallIndirect(tableSlot.tableName,
+                                                  tableSlot.makeExpr(primary),
+                                                  call->operands,
+                                                  func->type,
+                                                  call->isReturn));
+  }
 }
 
 void ModuleSplitter::exportImportCalledPrimaryFunctions() {
