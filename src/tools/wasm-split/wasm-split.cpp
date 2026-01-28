@@ -23,6 +23,7 @@
 #include "support/file.h"
 #include "support/name.h"
 #include "support/path.h"
+#include "support/threads.h"
 #include "support/utilities.h"
 #include "wasm-binary.h"
 #include "wasm-io.h"
@@ -455,17 +456,38 @@ void multiSplitModule(const WasmSplitOptions& options) {
 
   auto splitResults = ModuleSplitting::splitFunctions(wasm, config);
   assert(config.secondaryNames.size() == splitResults.secondaries.size());
-  for (Index i = 0, n = config.secondaryNames.size(); i < n; i++) {
-    auto& secondary = *splitResults.secondaries[i];
-    auto moduleName = options.outPrefix + config.secondaryNames[i].toString() +
-                      (options.emitBinary ? ".wasm" : ".wast");
-    if (options.symbolMap) {
-      writeSymbolMap(secondary, moduleName + ".symbols");
-    }
-    if (options.emitModuleNames) {
-      secondary.name = Path::getBaseName(moduleName);
-    }
-    writeModule(secondary, moduleName, options);
+
+  // We cannot use ThreadPool here because writeModule() runs the validation pass
+  // which uses ThreadPool, and ThreadPool is not reentrant.
+  size_t numThreads = ThreadPool::getNumCores();
+  std::vector<std::thread> threads;
+  threads.reserve(numThreads);
+  std::atomic<size_t> nextIndex(0);
+  size_t numSecondaries = config.secondaryNames.size();
+
+  for (size_t i = 0; i < numThreads; i++) {
+    threads.emplace_back([&]() {
+      while (true) {
+        auto index = nextIndex.fetch_add(1);
+        if (index >= numSecondaries) {
+          return;
+        }
+
+        auto& secondary = *splitResults.secondaries[index];
+        auto moduleName = options.outPrefix + config.secondaryNames[index].toString() +
+                          (options.emitBinary ? ".wasm" : ".wast");
+        if (options.symbolMap) {
+          writeSymbolMap(secondary, moduleName + ".symbols");
+        }
+        if (options.emitModuleNames) {
+          secondary.name = Path::getBaseName(moduleName);
+        }
+        writeModule(secondary, moduleName, options);
+      }
+    });
+  }
+  for (auto& t : threads) {
+    t.join();
   }
   if (options.symbolMap) {
     writeSymbolMap(wasm, options.output + ".symbols");
