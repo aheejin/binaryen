@@ -597,18 +597,19 @@ void ModuleSplitter::indirectReferencesToSecondaryFunctions() {
     gatherer.walkModule(secondaryPtr.get());
   }
 
-  // Ignore references to secondary functions that occur in the active segment
-  // that will contain the imported placeholders. Indirect calls to table slots
-  // initialized by that segment will already go to the right place once the
-  // secondary module has been loaded and the table has been patched.
+  // Ignore references to secondary functions that occur in active element segments.
+  // Indirect calls to table slots initialized by these segments will already go
+  // to the right place once the secondary module has been loaded and the table
+  // has been patched.
   std::unordered_set<RefFunc*> ignore;
-  if (tableManager.activeSegment) {
-    for (auto* expr : tableManager.activeSegment->data) {
-      if (auto* ref = expr->dynCast<RefFunc>()) {
-        ignore.insert(ref);
+  ModuleUtils::iterActiveElementSegments(
+    primary, [&](ElementSegment* segment) {
+      for (auto* expr : segment->data) {
+        if (auto* ref = expr->dynCast<RefFunc>()) {
+          ignore.insert(ref);
+        }
       }
-    }
-  }
+    });
 
   // Fix up what we found: Generate trampolines as described earlier, and apply
   // them.
@@ -721,11 +722,7 @@ void ModuleSplitter::exportImportCalledPrimaryFunctions() {
 }
 
 void ModuleSplitter::setupTablePatching() {
-  if (!tableManager.activeTable) {
-    return;
-  }
-
-  std::map<Module*, std::map<Index, Function*>> moduleToReplacedElems;
+  std::map<Module*, std::map<Name, std::map<Index, Function*>>> moduleToReplacedElems;
   // Replace table references to secondary functions with an imported
   // placeholder that encodes the table index in its name:
   // `importNamespace`.`index`.
@@ -738,24 +735,28 @@ void ModuleSplitter::setupTablePatching() {
       if (!allSecondaryFuncs.count(ref->func)) {
         return;
       }
-      assert(table == tableManager.activeTable->name);
 
       placeholderMap[table][index] = ref->func;
       Index secondaryIndex = funcToSecondaryIndex.at(ref->func);
       Module& secondary = *secondaries.at(secondaryIndex);
       Name secondaryName = config.secondaryNames.at(secondaryIndex);
       auto* secondaryFunc = secondary.getFunction(ref->func);
-      moduleToReplacedElems[&secondary][index] = secondaryFunc;
+      moduleToReplacedElems[&secondary][table][index] = secondaryFunc;
       if (!config.usePlaceholders) {
         // TODO: This can create active element segments with lots of nulls. We
         // should optimize them like we do data segments with zeros.
-        elem = Builder(primary).makeRefNull(HeapType::nofunc);
+        auto* tableObj = primary.getTable(table);
+        elem = Builder(primary).makeRefNull(tableObj->type.getHeapType());
         return;
       }
       auto placeholder = std::make_unique<Function>();
       placeholder->module = config.placeholderNamespacePrefix.toString() + "." +
                             secondaryName.toString();
-      placeholder->base = std::to_string(index);
+      if (tableManager.activeTable && table == tableManager.activeTable->name) {
+        placeholder->base = std::to_string(index);
+      } else {
+        placeholder->base = table.toString() + "_" + std::to_string(index);
+      }
       placeholder->name = Names::getValidFunctionName(
         primary, std::string("placeholder_") + placeholder->base.toString());
       placeholder->hasExplicitName = true;
@@ -769,84 +770,90 @@ void ModuleSplitter::setupTablePatching() {
     return;
   }
 
-  for (auto& [secondaryPtr, replacedElems] : moduleToReplacedElems) {
+  for (auto& [secondaryPtr, replacedElemsByTable] : moduleToReplacedElems) {
     Module& secondary = *secondaryPtr;
-    auto secondaryTable =
-      ModuleUtils::copyTable(tableManager.activeTable, secondary);
+    
+    for (auto& [tableName, replacedElems] : replacedElemsByTable) {
+      auto* primaryTable = primary.getTable(tableName);
+      auto secondaryTable = secondary.getTableOrNull(tableName);
+      if (!secondaryTable) {
+        secondaryTable = ModuleUtils::copyTable(primaryTable, secondary);
+      }
 
-    if (tableManager.activeBase.global.size()) {
-      assert(tableManager.activeTableSegments.size() == 1 &&
-             "Unexpected number of segments with non-const base");
-      assert(secondary.tables.size() == 1 && secondary.elementSegments.empty());
-      // Since addition is not currently allowed in initializer expressions, we
-      // need to start the new secondary segment where the primary segment
-      // starts. The secondary segment will contain the same primary functions
-      // as the primary module except in positions where it needs to overwrite a
-      // placeholder function. All primary functions in the table therefore need
-      // to be imported into the second module. TODO: use better strategies
-      // here, such as using ref.func in the start function or standardizing
-      // addition in initializer expressions.
-      ElementSegment* primarySeg = tableManager.activeTableSegments.front();
-      std::vector<Expression*> secondaryElems;
-      secondaryElems.reserve(primarySeg->data.size());
+      if (tableManager.activeTable && tableName == tableManager.activeTable->name && tableManager.activeBase.global.size()) {
+        assert(tableManager.activeTableSegments.size() == 1 &&
+               "Unexpected number of segments with non-const base");
+        assert(secondary.tables.size() == 1 && secondary.elementSegments.empty());
+        // Since addition is not currently allowed in initializer expressions, we
+        // need to start the new secondary segment where the primary segment
+        // starts. The secondary segment will contain the same primary functions
+        // as the primary module except in positions where it needs to overwrite a
+        // placeholder function. All primary functions in the table therefore need
+        // to be imported into the second module. TODO: use better strategies
+        // here, such as using ref.func in the start function or standardizing
+        // addition in initializer expressions.
+        ElementSegment* primarySeg = tableManager.activeTableSegments.front();
+        std::vector<Expression*> secondaryElems;
+        secondaryElems.reserve(primarySeg->data.size());
 
-      // Copy functions from the primary segment to the secondary segment,
-      // replacing placeholders and creating new exports and imports as
-      // necessary.
-      auto replacement = replacedElems.begin();
-      for (Index i = 0;
-           i < primarySeg->data.size() && replacement != replacedElems.end();
-           ++i) {
-        if (replacement->first == i) {
-          // primarySeg->data[i] is a placeholder, so use the secondary
-          // function.
-          auto* func = replacement->second;
-          auto* ref = Builder(secondary).makeRefFunc(func->name, func->type);
-          secondaryElems.push_back(ref);
-          ++replacement;
-        } else if (auto* get = primarySeg->data[i]->dynCast<RefFunc>()) {
-          exportImportFunction(get->func, {&secondary});
-          auto* copied =
-            ExpressionManipulator::copy(primarySeg->data[i], secondary);
-          secondaryElems.push_back(copied);
+        // Copy functions from the primary segment to the secondary segment,
+        // replacing placeholders and creating new exports and imports as
+        // necessary.
+        auto replacement = replacedElems.begin();
+        for (Index i = 0;
+             i < primarySeg->data.size() && replacement != replacedElems.end();
+             ++i) {
+          if (replacement->first == i) {
+            // primarySeg->data[i] is a placeholder, so use the secondary
+            // function.
+            auto* func = replacement->second;
+            auto* ref = Builder(secondary).makeRefFunc(func->name, func->type);
+            secondaryElems.push_back(ref);
+            ++replacement;
+          } else if (auto* get = primarySeg->data[i]->dynCast<RefFunc>()) {
+            exportImportFunction(get->func, {&secondary});
+            auto* copied =
+              ExpressionManipulator::copy(primarySeg->data[i], secondary);
+            secondaryElems.push_back(copied);
+          }
         }
+
+        auto offset = ExpressionManipulator::copy(primarySeg->offset, secondary);
+        auto secondarySeg = std::make_unique<ElementSegment>(
+          secondaryTable->name, offset, secondaryTable->type, secondaryElems);
+        secondarySeg->setName(primarySeg->name, primarySeg->hasExplicitName);
+        secondary.addElementSegment(std::move(secondarySeg));
+        continue;
       }
 
-      auto offset = ExpressionManipulator::copy(primarySeg->offset, secondary);
-      auto secondarySeg = std::make_unique<ElementSegment>(
-        secondaryTable->name, offset, secondaryTable->type, secondaryElems);
-      secondarySeg->setName(primarySeg->name, primarySeg->hasExplicitName);
-      secondary.addElementSegment(std::move(secondarySeg));
-      return;
-    }
-
-    // Create active table segments in the secondary module to patch in the
-    // original functions when it is instantiated.
-    Index currBase = replacedElems.begin()->first;
-    std::vector<Expression*> currData;
-    auto finishSegment = [&]() {
-      auto* offset = Builder(secondary).makeConst(
-        Literal::makeFromInt32(currBase, secondaryTable->addressType));
-      auto secondarySeg = std::make_unique<ElementSegment>(
-        secondaryTable->name, offset, secondaryTable->type, currData);
-      Name name = Names::getValidElementSegmentName(
-        secondary, Name::fromInt(secondary.elementSegments.size()));
-      secondarySeg->setName(name, false);
-      secondary.addElementSegment(std::move(secondarySeg));
-    };
-    for (auto curr = replacedElems.begin(); curr != replacedElems.end();
-         ++curr) {
-      if (curr->first != currBase + currData.size()) {
+      // Create active table segments in the secondary module to patch in the
+      // original functions when it is instantiated.
+      Index currBase = replacedElems.begin()->first;
+      std::vector<Expression*> currData;
+      auto finishSegment = [&]() {
+        auto* offset = Builder(secondary).makeConst(
+          Literal::makeFromInt32(currBase, secondaryTable->addressType));
+        auto secondarySeg = std::make_unique<ElementSegment>(
+          secondaryTable->name, offset, secondaryTable->type, currData);
+        Name name = Names::getValidElementSegmentName(
+          secondary, Name::fromInt(secondary.elementSegments.size()));
+        secondarySeg->setName(name, false);
+        secondary.addElementSegment(std::move(secondarySeg));
+      };
+      for (auto curr = replacedElems.begin(); curr != replacedElems.end();
+           ++curr) {
+        if (curr->first != currBase + currData.size()) {
+          finishSegment();
+          currBase = curr->first;
+          currData.clear();
+        }
+        auto* func = curr->second;
+        currData.push_back(
+          Builder(secondary).makeRefFunc(func->name, func->type));
+      }
+      if (currData.size()) {
         finishSegment();
-        currBase = curr->first;
-        currData.clear();
       }
-      auto* func = curr->second;
-      currData.push_back(
-        Builder(secondary).makeRefFunc(func->name, func->type));
-    }
-    if (currData.size()) {
-      finishSegment();
     }
   }
 }
@@ -979,6 +986,16 @@ void ModuleSplitter::shareImportableItems() {
     // doesn't have other uses. But if it is marked as "used" in the primary
     // module, it can't.
     walkSegments(collector, &module);
+    for (auto& segment : module.dataSegments) {
+      if (segment->memory.is()) {
+        used.memories.insert(segment->memory);
+      }
+    }
+    for (auto& segment : module.elementSegments) {
+      if (segment->table.is()) {
+        used.tables.insert(segment->table);
+      }
+    }
 
     // If primary module has exports, they are "used" in it. Secondary modules
     // don't have exports, so this only applies to the primary module.
@@ -1210,24 +1227,14 @@ void ModuleSplitter::shareImportableItems() {
 
   std::vector<Name> dataSegmentsToRemove;
   for (auto& segment : primary.dataSegments) {
-    if (segment->memory.is()) {
-      auto usingSecondaries = getUsingSecondaries(segment->memory, &UsedNames::memories);
-      bool usedInPrimary = primaryUsed.memories.count(segment->memory);
-      if (!usedInPrimary && usingSecondaries.size() == 1) {
-        auto* secondary = usingSecondaries[0];
-        ModuleUtils::copyDataSegment(segment.get(), *secondary);
-        dataSegmentsToRemove.push_back(segment->name);
-      }
-    } else {
-      auto usingSecondaries =
-        getUsingSecondaries(segment->name, &UsedNames::dataSegments);
-      bool usedInPrimary = primaryUsed.dataSegments.count(segment->name);
+    auto usingSecondaries =
+      getUsingSecondaries(segment->name, &UsedNames::dataSegments);
+    bool usedInPrimary = primaryUsed.dataSegments.count(segment->name);
 
-      if (!usedInPrimary && usingSecondaries.size() == 1) {
-        auto* secondary = usingSecondaries[0];
-        ModuleUtils::copyDataSegment(segment.get(), *secondary);
-        dataSegmentsToRemove.push_back(segment->name);
-      }
+    if (!usedInPrimary && usingSecondaries.size() == 1) {
+      auto* secondary = usingSecondaries[0];
+      ModuleUtils::copyDataSegment(segment.get(), *secondary);
+      dataSegmentsToRemove.push_back(segment->name);
     }
   }
   for (auto& name : dataSegmentsToRemove) {
@@ -1236,24 +1243,14 @@ void ModuleSplitter::shareImportableItems() {
 
   std::vector<Name> elementSegmentsToRemove;
   for (auto& segment : primary.elementSegments) {
-    if (segment->table.is()) {
-      auto usingSecondaries = getUsingSecondaries(segment->table, &UsedNames::tables);
-      bool usedInPrimary = primaryUsed.tables.count(segment->table);
-      if (!usedInPrimary && usingSecondaries.size() == 1) {
-        auto* secondary = usingSecondaries[0];
-        ModuleUtils::copyElementSegment(segment.get(), *secondary);
-        elementSegmentsToRemove.push_back(segment->name);
-      }
-    } else {
-      auto usingSecondaries =
-        getUsingSecondaries(segment->name, &UsedNames::elementSegments);
-      bool usedInPrimary = primaryUsed.elementSegments.count(segment->name);
+    auto usingSecondaries =
+      getUsingSecondaries(segment->name, &UsedNames::elementSegments);
+    bool usedInPrimary = primaryUsed.elementSegments.count(segment->name);
 
-      if (!usedInPrimary && usingSecondaries.size() == 1) {
-        auto* secondary = usingSecondaries[0];
-        ModuleUtils::copyElementSegment(segment.get(), *secondary);
-        elementSegmentsToRemove.push_back(segment->name);
-      }
+    if (!usedInPrimary && usingSecondaries.size() == 1) {
+      auto* secondary = usingSecondaries[0];
+      ModuleUtils::copyElementSegment(segment.get(), *secondary);
+      elementSegmentsToRemove.push_back(segment->name);
     }
   }
   for (auto& name : elementSegmentsToRemove) {

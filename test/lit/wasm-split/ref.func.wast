@@ -10,9 +10,9 @@
 (module
  ;; PRIMARY:      (type $0 (func))
 
- ;; PRIMARY:      (import "placeholder.deferred" "0" (func $placeholder_0 (type $0)))
+ ;; PRIMARY:      (import "placeholder.deferred" "table_1" (func $placeholder_table_1 (type $0)))
 
- ;; PRIMARY:      (import "placeholder.deferred" "1" (func $placeholder_1 (type $0)))
+ ;; PRIMARY:      (import "placeholder.deferred" "0" (func $placeholder_0 (type $0)))
 
  ;; PRIMARY:      (global $glob1 (ref func) (ref.func $prime))
 
@@ -25,18 +25,20 @@
 
  (global $glob2 (ref func) (ref.func $second))
 
- ;; PRIMARY:      (table $1 2 funcref)
+ ;; PRIMARY:      (table $1 1 funcref)
 
- ;; PRIMARY:      (elem $elem (table $table) (i32.const 0) func $in-table $trampoline_second-in-table)
+ ;; PRIMARY:      (elem $elem (table $table) (i32.const 0) func $in-table $placeholder_table_1)
  (elem $elem (i32.const 0) $in-table $second-in-table)
 
- ;; PRIMARY:      (elem $1 (table $1) (i32.const 0) func $placeholder_0 $placeholder_1)
+ ;; PRIMARY:      (elem $1 (table $1) (i32.const 0) func $placeholder_0)
 
  ;; PRIMARY:      (elem declare func $prime $trampoline_second)
 
  ;; PRIMARY:      (export "prime" (func $prime))
 
- ;; PRIMARY:      (export "table" (table $1))
+ ;; PRIMARY:      (export "table" (table $table))
+
+ ;; PRIMARY:      (export "table_2" (table $1))
 
  ;; PRIMARY:      (func $prime (type $0)
  ;; PRIMARY-NEXT:  (drop
@@ -69,11 +71,15 @@
 
  ;; SECONDARY:      (type $0 (func))
 
- ;; SECONDARY:      (import "primary" "table" (table $timport$0 2 funcref))
+ ;; SECONDARY:      (import "primary" "table_2" (table $timport$0 1 funcref))
+
+ ;; SECONDARY:      (import "primary" "table" (table $table 1 1 funcref))
 
  ;; SECONDARY:      (import "primary" "prime" (func $prime (exact (type $0))))
 
- ;; SECONDARY:      (elem $0 (i32.const 0) $second-in-table $second)
+ ;; SECONDARY:      (elem $0 (table $timport$0) (i32.const 0) func $second)
+
+ ;; SECONDARY:      (elem $1 (table $table) (i32.const 1) func $second-in-table)
 
  ;; SECONDARY:      (elem declare func $prime)
 
@@ -109,14 +115,8 @@
   ;; (but we will get a placeholder, as all split-out functions do).
  )
 )
-;; PRIMARY:      (func $trampoline_second-in-table (type $0)
-;; PRIMARY-NEXT:  (call_indirect $1 (type $0)
-;; PRIMARY-NEXT:   (i32.const 0)
-;; PRIMARY-NEXT:  )
-;; PRIMARY-NEXT: )
-
 ;; PRIMARY:      (func $trampoline_second (type $0)
 ;; PRIMARY-NEXT:  (call_indirect $1 (type $0)
-;; PRIMARY-NEXT:   (i32.const 1)
+;; PRIMARY-NEXT:   (i32.const 0)
 ;; PRIMARY-NEXT:  )
 ;; PRIMARY-NEXT: )

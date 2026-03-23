@@ -6,6 +6,8 @@
 (module
  ;; PRIMARY:      (type $0 (func (param i32) (result i32)))
 
+ ;; PRIMARY:      (import "placeholder.deferred" "table_0" (func $placeholder_table_0 (param i32) (result i32)))
+
  ;; PRIMARY:      (import "placeholder.deferred" "0" (func $placeholder_0 (param i32) (result i32)))
 
  ;; PRIMARY:      (table $table 1 1 funcref)
@@ -14,7 +16,7 @@
  (export "bar" (func $bar))
  ;; PRIMARY:      (table $1 1 funcref)
 
- ;; PRIMARY:      (elem $0 (table $table) (i32.const 0) func $trampoline_bar)
+ ;; PRIMARY:      (elem $0 (table $table) (i32.const 0) func $placeholder_table_0)
 
  ;; PRIMARY:      (elem $1 (table $1) (i32.const 0) func $placeholder_0)
 
@@ -22,7 +24,9 @@
 
  ;; PRIMARY:      (export "foo" (func $foo))
 
- ;; PRIMARY:      (export "table" (table $1))
+ ;; PRIMARY:      (export "table" (table $table))
+
+ ;; PRIMARY:      (export "table_3" (table $1))
 
  ;; PRIMARY:      (func $foo (param $0 i32) (result i32)
  ;; PRIMARY-NEXT:  (call_indirect $1 (type $0)
@@ -35,11 +39,15 @@
  )
  ;; SECONDARY:      (type $0 (func (param i32) (result i32)))
 
- ;; SECONDARY:      (import "primary" "table" (table $timport$0 1 funcref))
+ ;; SECONDARY:      (import "primary" "table_3" (table $timport$0 1 funcref))
+
+ ;; SECONDARY:      (import "primary" "table" (table $table 1 1 funcref))
 
  ;; SECONDARY:      (import "primary" "foo" (func $foo (exact (param i32) (result i32))))
 
- ;; SECONDARY:      (elem $0 (i32.const 0) $bar)
+ ;; SECONDARY:      (elem $0 (table $timport$0) (i32.const 0) func $bar)
+
+ ;; SECONDARY:      (elem $1 (table $table) (i32.const 0) func $bar)
 
  ;; SECONDARY:      (func $bar (param $0 i32) (result i32)
  ;; SECONDARY-NEXT:  (call $foo
