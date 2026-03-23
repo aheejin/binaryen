@@ -982,6 +982,17 @@ void ModuleSplitter::computeUsedNames() {
     NameCollector collector(used);
     walkSegments(collector, &module);
 
+    for (auto& segment : module.dataSegments) {
+      if (segment->memory.is()) {
+        used.memories.insert(segment->memory);
+      }
+    }
+    for (auto& segment : module.elementSegments) {
+      if (segment->table.is()) {
+        used.tables.insert(segment->table);
+      }
+    }
+
     for (auto& ex : module.exports) {
       switch (ex->kind) {
         case ExternalKind::Global:

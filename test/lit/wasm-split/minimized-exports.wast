@@ -5,7 +5,6 @@
 ;; PRIMARY:      (module
 ;; PRIMARY-NEXT:   (type $0 (func))
 ;; PRIMARY-NEXT:   (table $0 1 funcref)
-;; PRIMARY-NEXT:   (elem $0 (table $0) (i32.const 0) funcref (item (ref.null nofunc)))
 ;; PRIMARY-NEXT:   (export "baz" (func $2)
 ;; PRIMARY-NEXT:   (export "%a" (func $1))
 ;; PRIMARY-NEXT:   (export "%b" (func $0))

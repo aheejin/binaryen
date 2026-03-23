@@ -27,6 +27,8 @@
 
  ;; PRIMARY:      (export "foo" (func $foo))
 
+ ;; PRIMARY:      (export "table" (table $0))
+
  ;; PRIMARY:      (func $foo (type $func)
  ;; PRIMARY-NEXT:  (local $exact (ref (exact $func)))
  ;; PRIMARY-NEXT:  (local.set $exact
@@ -45,6 +47,8 @@
  ;; PRIMARY_NOCD:      (elem declare func $foo $trampoline_bar)
 
  ;; PRIMARY_NOCD:      (export "foo" (func $foo))
+
+ ;; PRIMARY_NOCD:      (export "table" (table $0))
 
  ;; PRIMARY_NOCD:      (func $foo (type $func)
  ;; PRIMARY_NOCD-NEXT:  (local $exact (ref $func))
@@ -67,9 +71,9 @@
 
  ;; SECONDARY:      (type $0 (sub (func)))
 
- ;; SECONDARY:      (import "primary" "foo" (func $foo (exact (type $0))))
+ ;; SECONDARY:      (import "primary" "table" (table $timport$0 1 funcref))
 
- ;; SECONDARY:      (table $0 1 funcref)
+ ;; SECONDARY:      (import "primary" "foo" (func $foo (exact (type $0))))
 
  ;; SECONDARY:      (elem $0 (i32.const 0) $bar)
 
@@ -86,9 +90,9 @@
  ;; SECONDARY-NEXT: )
  ;; SECONDARY_NOCD:      (type $0 (sub (func)))
 
- ;; SECONDARY_NOCD:      (import "primary" "foo" (func $foo (type $0)))
+ ;; SECONDARY_NOCD:      (import "primary" "table" (table $timport$0 1 funcref))
 
- ;; SECONDARY_NOCD:      (table $0 1 funcref)
+ ;; SECONDARY_NOCD:      (import "primary" "foo" (func $foo (type $0)))
 
  ;; SECONDARY_NOCD:      (elem $0 (i32.const 0) $bar)
 

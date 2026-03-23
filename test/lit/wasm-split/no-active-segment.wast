@@ -11,7 +11,7 @@
  (export "foo" (func $foo))
  ;; SECONDARY:      (type $0 (func))
 
- ;; SECONDARY:      (table $0 1 funcref)
+ ;; SECONDARY:      (import "primary" "table" (table $timport$0 1 funcref))
 
  ;; SECONDARY:      (elem $0 (i32.const 0) $foo)
 
@@ -31,6 +31,8 @@
 ;; PRIMARY:      (elem $0 (i32.const 0) $placeholder_0)
 
 ;; PRIMARY:      (export "foo" (func $trampoline_foo))
+
+;; PRIMARY:      (export "table" (table $0))
 
 ;; PRIMARY:      (func $trampoline_foo
 ;; PRIMARY-NEXT:  (call_indirect (type $0)
