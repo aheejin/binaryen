@@ -87,6 +87,67 @@ namespace wasm::ModuleSplitting {
 
 namespace {
 
+
+struct UsedNames {
+  std::unordered_set<Name> globals;
+  std::unordered_set<Name> memories;
+  std::unordered_set<Name> tables;
+  std::unordered_set<Name> tags;
+  std::unordered_set<Name> dataSegments;
+  std::unordered_set<Name> elementSegments;
+};
+
+struct NameCollector
+  : public PostWalker<NameCollector,
+                      UnifiedExpressionVisitor<NameCollector>> {
+  UsedNames& used;
+  NameCollector(UsedNames& used) : used(used) {}
+
+  void visitExpression(Expression* curr) {
+#define DELEGATE_ID curr->_id
+#define DELEGATE_START(id) [[maybe_unused]] auto* cast = curr->cast<id>();
+#define DELEGATE_GET_FIELD(id, field) cast->field
+#define DELEGATE_FIELD_TYPE(id, field)
+#define DELEGATE_FIELD_HEAPTYPE(id, field)
+#define DELEGATE_FIELD_CHILD(id, field)
+#define DELEGATE_FIELD_INT(id, field)
+#define DELEGATE_FIELD_LITERAL(id, field)
+#define DELEGATE_FIELD_NAME(id, field)
+#define DELEGATE_FIELD_SCOPE_NAME_DEF(id, field)
+#define DELEGATE_FIELD_SCOPE_NAME_USE(id, field)
+#define DELEGATE_FIELD_ADDRESS(id, field)
+
+#define DELEGATE_FIELD_NAME_KIND(id, field, kind)                              \
+  if (cast->field.is()) {                                                      \
+    switch (kind) {                                                            \
+      case ModuleItemKind::Table:                                              \
+        used.tables.insert(cast->field);                                       \
+        break;                                                                 \
+      case ModuleItemKind::Memory:                                             \
+        used.memories.insert(cast->field);                                     \
+        break;                                                                 \
+      case ModuleItemKind::Global:                                             \
+        used.globals.insert(cast->field);                                      \
+        break;                                                                 \
+      case ModuleItemKind::Tag:                                                \
+        used.tags.insert(cast->field);                                         \
+        break;                                                                 \
+      case ModuleItemKind::DataSegment:                                        \
+        used.dataSegments.insert(cast->field);                                 \
+        break;                                                                 \
+      case ModuleItemKind::ElementSegment:                                     \
+        used.elementSegments.insert(cast->field);                              \
+        break;                                                                 \
+      case ModuleItemKind::Function:                                           \
+      case ModuleItemKind::Invalid:                                            \
+        break;                                                                 \
+    }                                                                          \
+  }
+
+#include "wasm-delegations-fields.def"
+  }
+};
+
 static const Name LOAD_SECONDARY_STATUS = "load_secondary_module_status";
 
 template<class F> void forEachElement(Module& module, F f) {
@@ -321,6 +382,23 @@ struct ModuleSplitter {
   // Map from original secondary function name to its trampoline
   std::unordered_map<Name, Name> trampolineMap;
 
+
+  UsedNames primaryUsed;
+  std::vector<UsedNames> secondaryUsed;
+
+  void computeUsedNames();
+
+  template <typename Field>
+  std::vector<Module*> getUsingSecondaries(const Name& name, Field field) {
+    std::vector<Module*> usingModules;
+    for (size_t i = 0; i < secondaries.size(); ++i) {
+      if ((secondaryUsed[i].*field).count(name)) {
+        usingModules.push_back(secondaries[i].get());
+      }
+    }
+    return usingModules;
+  }
+
   // Initialization helpers
   static std::unique_ptr<Module> initSecondary(const Module& primary);
   static std::unordered_map<Name, Name>
@@ -354,6 +432,7 @@ struct ModuleSplitter {
     indirectReferencesToSecondaryFunctions();
     indirectCallsToSecondaryFunctions();
     exportImportCalledPrimaryFunctions();
+    computeUsedNames();
     setupTablePatching();
     shareImportableItems();
   }
@@ -858,6 +937,78 @@ void ModuleSplitter::setupTablePatching() {
   }
 }
 
+
+void ModuleSplitter::computeUsedNames() {
+  auto getUsedNames = [&](Module& module) {
+    UsedNames used;
+    ModuleUtils::ParallelFunctionAnalysis<UsedNames> nameCollector(
+      module, [&](Function* func, UsedNames& used) {
+        if (!func->imported()) {
+          NameCollector(used).walk(func->body);
+        }
+      });
+
+    for (auto& [_, funcUsed] : nameCollector.map) {
+      used.globals.insert(funcUsed.globals.begin(), funcUsed.globals.end());
+      used.memories.insert(funcUsed.memories.begin(), funcUsed.memories.end());
+      used.tables.insert(funcUsed.tables.begin(), funcUsed.tables.end());
+      used.tags.insert(funcUsed.tags.begin(), funcUsed.tags.end());
+      used.dataSegments.insert(funcUsed.dataSegments.begin(), funcUsed.dataSegments.end());
+      used.elementSegments.insert(funcUsed.elementSegments.begin(), funcUsed.elementSegments.end());
+    }
+
+    NameCollector collector(used);
+    walkSegments(collector, &module);
+
+    for (auto& ex : module.exports) {
+      switch (ex->kind) {
+        case ExternalKind::Global:
+          used.globals.insert(*ex->getInternalName());
+          break;
+        case ExternalKind::Memory:
+          used.memories.insert(*ex->getInternalName());
+          break;
+        case ExternalKind::Table:
+          used.tables.insert(*ex->getInternalName());
+          break;
+        case ExternalKind::Tag:
+          used.tags.insert(*ex->getInternalName());
+          break;
+        default:
+          break;
+      }
+    }
+    return used;
+  };
+
+  primaryUsed = getUsedNames(primary);
+  for (auto& secondaryPtr : secondaries) {
+    secondaryUsed.push_back(getUsedNames(*secondaryPtr));
+  }
+
+  auto computeTransitiveGlobals = [&](UsedNames& used) {
+    UniqueNonrepeatingDeferredQueue<Name> worklist;
+    for (auto global : used.globals) {
+      worklist.push(global);
+    }
+    while (!worklist.empty()) {
+      Name name = worklist.pop();
+      auto* global = primary.getGlobal(name);
+      if (!global->imported() && global->init) {
+        for (auto* get : FindAll<GlobalGet>(global->init).list) {
+          worklist.push(get->name);
+          used.globals.insert(get->name);
+        }
+      }
+    }
+  };
+
+  computeTransitiveGlobals(primaryUsed);
+  for (auto& used : secondaryUsed) {
+    computeTransitiveGlobals(used);
+  }
+}
+
 void ModuleSplitter::shareImportableItems() {
   // Map internal names to (one of) their corresponding export names. Don't
   // consider functions because they have already been imported and exported as
@@ -893,65 +1044,6 @@ void ModuleSplitter::shareImportableItems() {
     }
   };
 
-  struct UsedNames {
-    std::unordered_set<Name> globals;
-    std::unordered_set<Name> memories;
-    std::unordered_set<Name> tables;
-    std::unordered_set<Name> tags;
-    std::unordered_set<Name> dataSegments;
-    std::unordered_set<Name> elementSegments;
-  };
-
-  struct NameCollector
-    : public PostWalker<NameCollector,
-                        UnifiedExpressionVisitor<NameCollector>> {
-    UsedNames& used;
-    NameCollector(UsedNames& used) : used(used) {}
-
-    void visitExpression(Expression* curr) {
-#define DELEGATE_ID curr->_id
-#define DELEGATE_START(id) [[maybe_unused]] auto* cast = curr->cast<id>();
-#define DELEGATE_GET_FIELD(id, field) cast->field
-#define DELEGATE_FIELD_TYPE(id, field)
-#define DELEGATE_FIELD_HEAPTYPE(id, field)
-#define DELEGATE_FIELD_CHILD(id, field)
-#define DELEGATE_FIELD_INT(id, field)
-#define DELEGATE_FIELD_LITERAL(id, field)
-#define DELEGATE_FIELD_NAME(id, field)
-#define DELEGATE_FIELD_SCOPE_NAME_DEF(id, field)
-#define DELEGATE_FIELD_SCOPE_NAME_USE(id, field)
-#define DELEGATE_FIELD_ADDRESS(id, field)
-
-#define DELEGATE_FIELD_NAME_KIND(id, field, kind)                              \
-  if (cast->field.is()) {                                                      \
-    switch (kind) {                                                            \
-      case ModuleItemKind::Table:                                              \
-        used.tables.insert(cast->field);                                       \
-        break;                                                                 \
-      case ModuleItemKind::Memory:                                             \
-        used.memories.insert(cast->field);                                     \
-        break;                                                                 \
-      case ModuleItemKind::Global:                                             \
-        used.globals.insert(cast->field);                                      \
-        break;                                                                 \
-      case ModuleItemKind::Tag:                                                \
-        used.tags.insert(cast->field);                                         \
-        break;                                                                 \
-      case ModuleItemKind::DataSegment:                                        \
-        used.dataSegments.insert(cast->field);                                 \
-        break;                                                                 \
-      case ModuleItemKind::ElementSegment:                                     \
-        used.elementSegments.insert(cast->field);                              \
-        break;                                                                 \
-      case ModuleItemKind::Function:                                           \
-      case ModuleItemKind::Invalid:                                            \
-        break;                                                                 \
-    }                                                                          \
-  }
-
-#include "wasm-delegations-fields.def"
-    }
-  };
 
   // Given a module, collect names used in the module
   auto getUsedNames = [&](Module& module) {
@@ -1227,14 +1319,24 @@ void ModuleSplitter::shareImportableItems() {
 
   std::vector<Name> dataSegmentsToRemove;
   for (auto& segment : primary.dataSegments) {
-    auto usingSecondaries =
-      getUsingSecondaries(segment->name, &UsedNames::dataSegments);
-    bool usedInPrimary = primaryUsed.dataSegments.count(segment->name);
+    if (segment->memory.is()) {
+      auto usingSecondaries = getUsingSecondaries(segment->memory, &UsedNames::memories);
+      bool usedInPrimary = primaryUsed.memories.count(segment->memory);
+      if (!usedInPrimary && usingSecondaries.size() == 1) {
+        auto* secondary = usingSecondaries[0];
+        ModuleUtils::copyDataSegment(segment.get(), *secondary);
+        dataSegmentsToRemove.push_back(segment->name);
+      }
+    } else {
+      auto usingSecondaries =
+        getUsingSecondaries(segment->name, &UsedNames::dataSegments);
+      bool usedInPrimary = primaryUsed.dataSegments.count(segment->name);
 
-    if (!usedInPrimary && usingSecondaries.size() == 1) {
-      auto* secondary = usingSecondaries[0];
-      ModuleUtils::copyDataSegment(segment.get(), *secondary);
-      dataSegmentsToRemove.push_back(segment->name);
+      if (!usedInPrimary && usingSecondaries.size() == 1) {
+        auto* secondary = usingSecondaries[0];
+        ModuleUtils::copyDataSegment(segment.get(), *secondary);
+        dataSegmentsToRemove.push_back(segment->name);
+      }
     }
   }
   for (auto& name : dataSegmentsToRemove) {
@@ -1243,14 +1345,24 @@ void ModuleSplitter::shareImportableItems() {
 
   std::vector<Name> elementSegmentsToRemove;
   for (auto& segment : primary.elementSegments) {
-    auto usingSecondaries =
-      getUsingSecondaries(segment->name, &UsedNames::elementSegments);
-    bool usedInPrimary = primaryUsed.elementSegments.count(segment->name);
+    if (segment->table.is()) {
+      auto usingSecondaries = getUsingSecondaries(segment->table, &UsedNames::tables);
+      bool usedInPrimary = primaryUsed.tables.count(segment->table);
+      if (!usedInPrimary && usingSecondaries.size() == 1) {
+        auto* secondary = usingSecondaries[0];
+        ModuleUtils::copyElementSegment(segment.get(), *secondary);
+        elementSegmentsToRemove.push_back(segment->name);
+      }
+    } else {
+      auto usingSecondaries =
+        getUsingSecondaries(segment->name, &UsedNames::elementSegments);
+      bool usedInPrimary = primaryUsed.elementSegments.count(segment->name);
 
-    if (!usedInPrimary && usingSecondaries.size() == 1) {
-      auto* secondary = usingSecondaries[0];
-      ModuleUtils::copyElementSegment(segment.get(), *secondary);
-      elementSegmentsToRemove.push_back(segment->name);
+      if (!usedInPrimary && usingSecondaries.size() == 1) {
+        auto* secondary = usingSecondaries[0];
+        ModuleUtils::copyElementSegment(segment.get(), *secondary);
+        elementSegmentsToRemove.push_back(segment->name);
+      }
     }
   }
   for (auto& name : elementSegmentsToRemove) {
