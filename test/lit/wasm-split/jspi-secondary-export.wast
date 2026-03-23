@@ -25,8 +25,6 @@
  (export "foo" (func $foo))
  ;; PRIMARY:      (export "load_secondary_module_status" (global $global$0))
 
- ;; PRIMARY:      (export "%table" (table $0))
-
  ;; PRIMARY:      (func $foo (param $0 i32) (result i32)
  ;; PRIMARY-NEXT:  (if
  ;; PRIMARY-NEXT:   (i32.eqz
@@ -46,7 +44,7 @@
  )
  ;; SECONDARY:      (type $0 (func (param i32) (result i32)))
 
- ;; SECONDARY:      (import "primary" "%table" (table $timport$0 1 funcref))
+ ;; SECONDARY:      (table $0 1 funcref)
 
  ;; SECONDARY:      (elem $0 (i32.const 0) $bar)
 

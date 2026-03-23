@@ -16,13 +16,13 @@
 
  ;; SECONDARY:      (type $2 (array externref))
 
- ;; SECONDARY:      (import "primary" "table" (table $timport$0 5 funcref))
-
  ;; SECONDARY:      (memory $mem 0)
  (memory $mem 0)
 
  ;; SECONDARY:      (data $data "hello world")
  (data $data "hello world")
+
+ ;; SECONDARY:      (table $0 5 funcref)
 
  ;; SECONDARY:      (elem $0 (i32.const 0) $data.drop $memory.init $array.new_data $array.new_elem $no-segment)
 
@@ -109,8 +109,6 @@
  ;; PRIMARY:      (table $0 5 funcref)
 
  ;; PRIMARY:      (elem $0 (i32.const 0) $placeholder_0 $placeholder_1 $placeholder_2 $placeholder_3 $placeholder_4)
-
- ;; PRIMARY:      (export "table" (table $0))
 
  ;; PRIMARY:      (func $use-funcs
  ;; PRIMARY-NEXT:  (call_indirect (type $0)

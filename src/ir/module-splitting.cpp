@@ -434,6 +434,7 @@ struct ModuleSplitter {
     exportImportCalledPrimaryFunctions();
     computeUsedNames();
     setupTablePatching();
+    computeUsedNames();
     shareImportableItems();
   }
 };
@@ -846,6 +847,27 @@ void ModuleSplitter::setupTablePatching() {
 
   if (moduleToReplacedElems.size() == 0) {
     // No placeholders to patch out of the table
+  if (!config.usePlaceholders) {
+    std::vector<std::unique_ptr<ElementSegment>> newSegments;
+    for (auto& seg : primary.elementSegments) {
+      bool allNull = true;
+      for (auto* expr : seg->data) {
+        if (!expr->is<RefNull>()) {
+          allNull = false;
+          break;
+        }
+      }
+      if (!allNull) {
+        // Strip trailing ref.nulls
+        while (!seg->data.empty() && seg->data.back()->is<RefNull>()) {
+          seg->data.pop_back();
+        }
+        newSegments.push_back(std::move(seg));
+      }
+    }
+    primary.elementSegments = std::move(newSegments);
+    primary.updateMaps();
+  }
     return;
   }
 
@@ -982,6 +1004,7 @@ void ModuleSplitter::computeUsedNames() {
   };
 
   primaryUsed = getUsedNames(primary);
+  secondaryUsed.clear();
   for (auto& secondaryPtr : secondaries) {
     secondaryUsed.push_back(getUsedNames(*secondaryPtr));
   }
@@ -1006,6 +1029,27 @@ void ModuleSplitter::computeUsedNames() {
   computeTransitiveGlobals(primaryUsed);
   for (auto& used : secondaryUsed) {
     computeTransitiveGlobals(used);
+  }
+  if (!config.usePlaceholders) {
+    std::vector<std::unique_ptr<ElementSegment>> newSegments;
+    for (auto& seg : primary.elementSegments) {
+      bool allNull = true;
+      for (auto* expr : seg->data) {
+        if (!expr->is<RefNull>()) {
+          allNull = false;
+          break;
+        }
+      }
+      if (!allNull) {
+        // Strip trailing ref.nulls
+        while (!seg->data.empty() && seg->data.back()->is<RefNull>()) {
+          seg->data.pop_back();
+        }
+        newSegments.push_back(std::move(seg));
+      }
+    }
+    primary.elementSegments = std::move(newSegments);
+    primary.updateMaps();
   }
 }
 
@@ -1045,118 +1089,6 @@ void ModuleSplitter::shareImportableItems() {
   };
 
 
-  // Given a module, collect names used in the module
-  auto getUsedNames = [&](Module& module) {
-    UsedNames used;
-    ModuleUtils::ParallelFunctionAnalysis<UsedNames> nameCollector(
-      module, [&](Function* func, UsedNames& used) {
-        if (!func->imported()) {
-          NameCollector(used).walk(func->body);
-        }
-      });
-
-    for (auto& [_, funcUsed] : nameCollector.map) {
-      used.globals.insert(funcUsed.globals.begin(), funcUsed.globals.end());
-      used.memories.insert(funcUsed.memories.begin(), funcUsed.memories.end());
-      used.tables.insert(funcUsed.tables.begin(), funcUsed.tables.end());
-      used.tags.insert(funcUsed.tags.begin(), funcUsed.tags.end());
-      used.dataSegments.insert(funcUsed.dataSegments.begin(), funcUsed.dataSegments.end());
-      used.elementSegments.insert(funcUsed.elementSegments.begin(), funcUsed.elementSegments.end());
-    }
-
-    NameCollector collector(used);
-    // We shouldn't use collector.walkModuleCode here, because we don't want to
-    // walk global initializers. At this point, all globals are still in the
-    // primary module, so if we walk global initializers here, other globals
-    // appearing in their initializers will all be marked as used in the primary
-    // module, which is not what we want.
-    //
-    // For example, we have (global $a i32 (global.get $b)). Because $a is at
-    // this point still in the primary module, $b will be marked as "used" in
-    // the primary module. But $a can be moved to a secondary module later if it
-    // is used exclusively by that module. Then $b can be also moved, in case it
-    // doesn't have other uses. But if it is marked as "used" in the primary
-    // module, it can't.
-    walkSegments(collector, &module);
-    for (auto& segment : module.dataSegments) {
-      if (segment->memory.is()) {
-        used.memories.insert(segment->memory);
-      }
-    }
-    for (auto& segment : module.elementSegments) {
-      if (segment->table.is()) {
-        used.tables.insert(segment->table);
-      }
-    }
-
-    // If primary module has exports, they are "used" in it. Secondary modules
-    // don't have exports, so this only applies to the primary module.
-    for (auto& ex : module.exports) {
-      switch (ex->kind) {
-        case ExternalKind::Global:
-          used.globals.insert(*ex->getInternalName());
-          break;
-        case ExternalKind::Memory:
-          used.memories.insert(*ex->getInternalName());
-          break;
-        case ExternalKind::Table:
-          used.tables.insert(*ex->getInternalName());
-          break;
-        case ExternalKind::Tag:
-          used.tags.insert(*ex->getInternalName());
-          break;
-        default:
-          break;
-      }
-    }
-    return used;
-  };
-
-  UsedNames primaryUsed = getUsedNames(primary);
-  std::vector<UsedNames> secondaryUsed;
-  for (auto& secondaryPtr : secondaries) {
-    secondaryUsed.push_back(getUsedNames(*secondaryPtr));
-  }
-
-  // Compute the transitive closure of globals referenced in other globals'
-  // initializers. Since globals can reference other globals, we must ensure
-  // that if a global is used in a module, all its dependencies are also marked
-  // as used.
-  auto computeTransitiveGlobals = [&](UsedNames& used) {
-    UniqueNonrepeatingDeferredQueue<Name> worklist;
-    for (auto global : used.globals) {
-      worklist.push(global);
-    }
-    while (!worklist.empty()) {
-      Name name = worklist.pop();
-      // At this point all globals are still in the primary module, so this
-      // exists
-      auto* global = primary.getGlobal(name);
-      if (!global->imported() && global->init) {
-        for (auto* get : FindAll<GlobalGet>(global->init).list) {
-          worklist.push(get->name);
-          used.globals.insert(get->name);
-        }
-      }
-    }
-  };
-
-  computeTransitiveGlobals(primaryUsed);
-  for (auto& used : secondaryUsed) {
-    computeTransitiveGlobals(used);
-  }
-
-  // Given a name and module item kind, returns the list of secondary modules
-  // using that name
-  auto getUsingSecondaries = [&](const Name& name, auto UsedNames::* field) {
-    std::vector<Module*> usingModules;
-    for (size_t i = 0; i < secondaries.size(); ++i) {
-      if ((secondaryUsed[i].*field).count(name)) {
-        usingModules.push_back(secondaries[i].get());
-      }
-    }
-    return usingModules;
-  };
 
   // Share module items with secondary modules.
   // 1. Only share an item with the modules that use it

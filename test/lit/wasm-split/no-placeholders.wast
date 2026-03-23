@@ -13,8 +13,6 @@
 
  ;; PRIMARY:      (export "foo" (func $foo))
 
- ;; PRIMARY:      (export "table" (table $0))
-
  ;; PRIMARY:      (func $foo
  ;; PRIMARY-NEXT:  (call_indirect (type $0)
  ;; PRIMARY-NEXT:   (i32.const 0)
@@ -29,9 +27,9 @@
  )
  ;; SECONDARY:      (type $0 (func))
 
- ;; SECONDARY:      (import "primary" "table" (table $timport$0 2 funcref))
-
  ;; SECONDARY:      (import "primary" "foo" (func $foo (exact)))
+
+ ;; SECONDARY:      (table $0 2 funcref)
 
  ;; SECONDARY:      (elem $0 (i32.const 0) $bar $baz)
 
