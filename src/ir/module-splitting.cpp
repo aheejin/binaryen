@@ -979,16 +979,6 @@ void ModuleSplitter::shareImportableItems() {
     // doesn't have other uses. But if it is marked as "used" in the primary
     // module, it can't.
     walkSegments(collector, &module);
-    for (auto& segment : module.dataSegments) {
-      if (segment->memory.is()) {
-        used.memories.insert(segment->memory);
-      }
-    }
-    for (auto& segment : module.elementSegments) {
-      if (segment->table.is()) {
-        used.tables.insert(segment->table);
-      }
-    }
 
     // If primary module has exports, they are "used" in it. Secondary modules
     // don't have exports, so this only applies to the primary module.
@@ -1220,14 +1210,24 @@ void ModuleSplitter::shareImportableItems() {
 
   std::vector<Name> dataSegmentsToRemove;
   for (auto& segment : primary.dataSegments) {
-    auto usingSecondaries =
-      getUsingSecondaries(segment->name, &UsedNames::dataSegments);
-    bool usedInPrimary = primaryUsed.dataSegments.count(segment->name);
+    if (segment->memory.is()) {
+      auto usingSecondaries = getUsingSecondaries(segment->memory, &UsedNames::memories);
+      bool usedInPrimary = primaryUsed.memories.count(segment->memory);
+      if (!usedInPrimary && usingSecondaries.size() == 1) {
+        auto* secondary = usingSecondaries[0];
+        ModuleUtils::copyDataSegment(segment.get(), *secondary);
+        dataSegmentsToRemove.push_back(segment->name);
+      }
+    } else {
+      auto usingSecondaries =
+        getUsingSecondaries(segment->name, &UsedNames::dataSegments);
+      bool usedInPrimary = primaryUsed.dataSegments.count(segment->name);
 
-    if (!usedInPrimary && usingSecondaries.size() == 1) {
-      auto* secondary = usingSecondaries[0];
-      ModuleUtils::copyDataSegment(segment.get(), *secondary);
-      dataSegmentsToRemove.push_back(segment->name);
+      if (!usedInPrimary && usingSecondaries.size() == 1) {
+        auto* secondary = usingSecondaries[0];
+        ModuleUtils::copyDataSegment(segment.get(), *secondary);
+        dataSegmentsToRemove.push_back(segment->name);
+      }
     }
   }
   for (auto& name : dataSegmentsToRemove) {
@@ -1236,14 +1236,24 @@ void ModuleSplitter::shareImportableItems() {
 
   std::vector<Name> elementSegmentsToRemove;
   for (auto& segment : primary.elementSegments) {
-    auto usingSecondaries =
-      getUsingSecondaries(segment->name, &UsedNames::elementSegments);
-    bool usedInPrimary = primaryUsed.elementSegments.count(segment->name);
+    if (segment->table.is()) {
+      auto usingSecondaries = getUsingSecondaries(segment->table, &UsedNames::tables);
+      bool usedInPrimary = primaryUsed.tables.count(segment->table);
+      if (!usedInPrimary && usingSecondaries.size() == 1) {
+        auto* secondary = usingSecondaries[0];
+        ModuleUtils::copyElementSegment(segment.get(), *secondary);
+        elementSegmentsToRemove.push_back(segment->name);
+      }
+    } else {
+      auto usingSecondaries =
+        getUsingSecondaries(segment->name, &UsedNames::elementSegments);
+      bool usedInPrimary = primaryUsed.elementSegments.count(segment->name);
 
-    if (!usedInPrimary && usingSecondaries.size() == 1) {
-      auto* secondary = usingSecondaries[0];
-      ModuleUtils::copyElementSegment(segment.get(), *secondary);
-      elementSegmentsToRemove.push_back(segment->name);
+      if (!usedInPrimary && usingSecondaries.size() == 1) {
+        auto* secondary = usingSecondaries[0];
+        ModuleUtils::copyElementSegment(segment.get(), *secondary);
+        elementSegmentsToRemove.push_back(segment->name);
+      }
     }
   }
   for (auto& name : elementSegmentsToRemove) {
