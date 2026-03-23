@@ -387,63 +387,6 @@ std::unique_ptr<Module> ModuleSplitter::initSecondary(const Module& primary) {
 }
 
 void ModuleSplitter::classifyFunctions() {
-  // Find functions that refer to data or element segments. These functions must
-  // remain in the primary module because segments cannot be exported to be
-  // accessed from the secondary module.
-  //
-  // TODO: Investigate other options, such as moving the segments to the
-  // secondary module or replacing the segment-using instructions in the
-  // secondary module with calls to imports.
-  ModuleUtils::ParallelFunctionAnalysis<std::vector<Name>>
-    segmentReferrerCollector(
-      primary, [&](Function* func, std::vector<Name>& segmentReferrers) {
-        if (func->imported()) {
-          return;
-        }
-
-        struct SegmentReferrerCollector
-          : PostWalker<SegmentReferrerCollector,
-                       UnifiedExpressionVisitor<SegmentReferrerCollector>> {
-          bool hasSegmentReference = false;
-
-          void visitExpression(Expression* curr) {
-
-#define DELEGATE_ID curr->_id
-
-#define DELEGATE_START(id) [[maybe_unused]] auto* cast = curr->cast<id>();
-#define DELEGATE_GET_FIELD(id, field) cast->field
-#define DELEGATE_FIELD_TYPE(id, field)
-#define DELEGATE_FIELD_HEAPTYPE(id, field)
-#define DELEGATE_FIELD_CHILD(id, field)
-#define DELEGATE_FIELD_OPTIONAL_CHILD(id, field)
-#define DELEGATE_FIELD_INT(id, field)
-#define DELEGATE_FIELD_LITERAL(id, field)
-#define DELEGATE_FIELD_NAME(id, field)
-#define DELEGATE_FIELD_SCOPE_NAME_DEF(id, field)
-#define DELEGATE_FIELD_SCOPE_NAME_USE(id, field)
-#define DELEGATE_FIELD_ADDRESS(id, field)
-
-#define DELEGATE_FIELD_NAME_KIND(id, field, kind)                              \
-  if (kind == ModuleItemKind::DataSegment ||                                   \
-      kind == ModuleItemKind::ElementSegment) {                                \
-    hasSegmentReference = true;                                                \
-  }
-
-#include "wasm-delegations-fields.def"
-          }
-        };
-        SegmentReferrerCollector collector;
-        collector.walkFunction(func);
-        if (collector.hasSegmentReference) {
-          segmentReferrers.push_back(func->name);
-        }
-      });
-
-  std::unordered_set<Name> segmentReferrers;
-  for (auto& [_, referrers] : segmentReferrerCollector.map) {
-    segmentReferrers.insert(referrers.begin(), referrers.end());
-  }
-
   std::unordered_set<Name> configSecondaryFuncs;
   for (auto& funcs : config.secondaryFuncs) {
     configSecondaryFuncs.insert(funcs.begin(), funcs.end());
@@ -454,8 +397,7 @@ void ModuleSplitter::classifyFunctions() {
     // wrapper. Exported JSPI functions can still benefit from splitting though
     // since only the JSPI wrapper stub will remain in the primary module.
     if (func->imported() || !configSecondaryFuncs.count(func->name) ||
-        (config.jspi && ExportUtils::isExported(primary, *func)) ||
-        segmentReferrers.count(func->name)) {
+        (config.jspi && ExportUtils::isExported(primary, *func))) {
       primaryFuncs.insert(func->name);
     } else {
       assert(func->name != primary.start && "The start function must be kept");
@@ -949,6 +891,8 @@ void ModuleSplitter::shareImportableItems() {
     std::unordered_set<Name> memories;
     std::unordered_set<Name> tables;
     std::unordered_set<Name> tags;
+    std::unordered_set<Name> dataSegments;
+    std::unordered_set<Name> elementSegments;
   };
 
   struct NameCollector
@@ -986,9 +930,13 @@ void ModuleSplitter::shareImportableItems() {
       case ModuleItemKind::Tag:                                                \
         used.tags.insert(cast->field);                                         \
         break;                                                                 \
-      case ModuleItemKind::Function:                                           \
       case ModuleItemKind::DataSegment:                                        \
+        used.dataSegments.insert(cast->field);                                 \
+        break;                                                                 \
       case ModuleItemKind::ElementSegment:                                     \
+        used.elementSegments.insert(cast->field);                              \
+        break;                                                                 \
+      case ModuleItemKind::Function:                                           \
       case ModuleItemKind::Invalid:                                            \
         break;                                                                 \
     }                                                                          \
@@ -1013,6 +961,8 @@ void ModuleSplitter::shareImportableItems() {
       used.memories.insert(funcUsed.memories.begin(), funcUsed.memories.end());
       used.tables.insert(funcUsed.tables.begin(), funcUsed.tables.end());
       used.tags.insert(funcUsed.tags.begin(), funcUsed.tags.end());
+      used.dataSegments.insert(funcUsed.dataSegments.begin(), funcUsed.dataSegments.end());
+      used.elementSegments.insert(funcUsed.elementSegments.begin(), funcUsed.elementSegments.end());
     }
 
     NameCollector collector(used);
@@ -1266,6 +1216,38 @@ void ModuleSplitter::shareImportableItems() {
   }
   for (auto& name : tagsToRemove) {
     primary.removeTag(name);
+  }
+
+  std::vector<Name> dataSegmentsToRemove;
+  for (auto& segment : primary.dataSegments) {
+    auto usingSecondaries =
+      getUsingSecondaries(segment->name, &UsedNames::dataSegments);
+    bool usedInPrimary = primaryUsed.dataSegments.count(segment->name);
+
+    if (!usedInPrimary && usingSecondaries.size() == 1) {
+      auto* secondary = usingSecondaries[0];
+      ModuleUtils::copyDataSegment(segment.get(), *secondary);
+      dataSegmentsToRemove.push_back(segment->name);
+    }
+  }
+  for (auto& name : dataSegmentsToRemove) {
+    primary.removeDataSegment(name);
+  }
+
+  std::vector<Name> elementSegmentsToRemove;
+  for (auto& segment : primary.elementSegments) {
+    auto usingSecondaries =
+      getUsingSecondaries(segment->name, &UsedNames::elementSegments);
+    bool usedInPrimary = primaryUsed.elementSegments.count(segment->name);
+
+    if (!usedInPrimary && usingSecondaries.size() == 1) {
+      auto* secondary = usingSecondaries[0];
+      ModuleUtils::copyElementSegment(segment.get(), *secondary);
+      elementSegmentsToRemove.push_back(segment->name);
+    }
+  }
+  for (auto& name : elementSegmentsToRemove) {
+    primary.removeElementSegment(name);
   }
 }
 

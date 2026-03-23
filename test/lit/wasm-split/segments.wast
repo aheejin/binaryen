@@ -6,45 +6,61 @@
 
 (module
 
- ;; PRIMARY:      (type $0 (func))
-
- ;; PRIMARY:      (type $data-array (array i8))
  (type $data-array (array i8))
 
- ;; PRIMARY:      (type $elem-array (array externref))
  (type $elem-array (array externref))
 
- ;; PRIMARY:      (import "placeholder.deferred" "0" (func $placeholder_0))
+ ;; SECONDARY:      (type $0 (func))
 
- ;; PRIMARY:      (memory $mem 0)
+ ;; SECONDARY:      (type $1 (array i8))
+
+ ;; SECONDARY:      (type $2 (array externref))
+
+ ;; SECONDARY:      (import "primary" "table" (table $timport$0 5 funcref))
+
+ ;; SECONDARY:      (memory $mem 0)
  (memory $mem 0)
 
- ;; PRIMARY:      (data $data "hello world")
+ ;; SECONDARY:      (data $data "hello world")
  (data $data "hello world")
 
- ;; PRIMARY:      (table $0 1 funcref)
+ ;; SECONDARY:      (elem $0 (i32.const 0) $data.drop $memory.init $array.new_data $array.new_elem $no-segment)
 
- ;; PRIMARY:      (elem $elem externref)
+ ;; SECONDARY:      (elem $elem externref)
  (elem $elem externref)
 
- ;; PRIMARY:      (elem $1 (i32.const 0) $placeholder_0)
+ ;; SECONDARY:      (func $array.new_data
+ ;; SECONDARY-NEXT:  (drop
+ ;; SECONDARY-NEXT:   (array.new_data $1 $data
+ ;; SECONDARY-NEXT:    (i32.const 0)
+ ;; SECONDARY-NEXT:    (i32.const 0)
+ ;; SECONDARY-NEXT:   )
+ ;; SECONDARY-NEXT:  )
+ ;; SECONDARY-NEXT: )
 
- ;; PRIMARY:      (export "table" (table $0))
+ ;; SECONDARY:      (func $array.new_elem
+ ;; SECONDARY-NEXT:  (drop
+ ;; SECONDARY-NEXT:   (array.new_elem $2 $elem
+ ;; SECONDARY-NEXT:    (i32.const 0)
+ ;; SECONDARY-NEXT:    (i32.const 0)
+ ;; SECONDARY-NEXT:   )
+ ;; SECONDARY-NEXT:  )
+ ;; SECONDARY-NEXT: )
 
- ;; PRIMARY:      (func $data.drop
- ;; PRIMARY-NEXT:  (data.drop $data)
- ;; PRIMARY-NEXT: )
+ ;; SECONDARY:      (func $data.drop
+ ;; SECONDARY-NEXT:  (data.drop $data)
+ ;; SECONDARY-NEXT: )
  (func $data.drop
   (data.drop $data)
  )
 
- ;; PRIMARY:      (func $memory.init
- ;; PRIMARY-NEXT:  (memory.init $data
- ;; PRIMARY-NEXT:   (i32.const 0)
- ;; PRIMARY-NEXT:   (i32.const 0)
- ;; PRIMARY-NEXT:   (i32.const 0)
- ;; PRIMARY-NEXT:  )
- ;; PRIMARY-NEXT: )
+ ;; SECONDARY:      (func $memory.init
+ ;; SECONDARY-NEXT:  (memory.init $data
+ ;; SECONDARY-NEXT:   (i32.const 0)
+ ;; SECONDARY-NEXT:   (i32.const 0)
+ ;; SECONDARY-NEXT:   (i32.const 0)
+ ;; SECONDARY-NEXT:  )
+ ;; SECONDARY-NEXT: )
  (func $memory.init
   (memory.init $mem $data
    (i32.const 0)
@@ -53,14 +69,6 @@
   )
  )
 
- ;; PRIMARY:      (func $array.new_data
- ;; PRIMARY-NEXT:  (drop
- ;; PRIMARY-NEXT:   (array.new_data $data-array $data
- ;; PRIMARY-NEXT:    (i32.const 0)
- ;; PRIMARY-NEXT:    (i32.const 0)
- ;; PRIMARY-NEXT:   )
- ;; PRIMARY-NEXT:  )
- ;; PRIMARY-NEXT: )
  (func $array.new_data
   (drop
    (array.new_data $data-array $data
@@ -70,14 +78,6 @@
   )
  )
 
- ;; PRIMARY:      (func $array.new_elem
- ;; PRIMARY-NEXT:  (drop
- ;; PRIMARY-NEXT:   (array.new_elem $elem-array $elem
- ;; PRIMARY-NEXT:    (i32.const 0)
- ;; PRIMARY-NEXT:    (i32.const 0)
- ;; PRIMARY-NEXT:   )
- ;; PRIMARY-NEXT:  )
- ;; PRIMARY-NEXT: )
  (func $array.new_elem
   (drop
    (array.new_elem $elem-array $elem
@@ -87,12 +87,6 @@
   )
  )
 
- ;; SECONDARY:      (type $0 (func))
-
- ;; SECONDARY:      (import "primary" "table" (table $timport$0 1 funcref))
-
- ;; SECONDARY:      (elem $0 (i32.const 0) $no-segment)
-
  ;; SECONDARY:      (func $no-segment
  ;; SECONDARY-NEXT:  (nop)
  ;; SECONDARY-NEXT: )
@@ -100,13 +94,39 @@
   (nop)
  )
 
+ ;; PRIMARY:      (type $0 (func))
+
+ ;; PRIMARY:      (import "placeholder.deferred" "0" (func $placeholder_0))
+
+ ;; PRIMARY:      (import "placeholder.deferred" "1" (func $placeholder_1))
+
+ ;; PRIMARY:      (import "placeholder.deferred" "2" (func $placeholder_2))
+
+ ;; PRIMARY:      (import "placeholder.deferred" "3" (func $placeholder_3))
+
+ ;; PRIMARY:      (import "placeholder.deferred" "4" (func $placeholder_4))
+
+ ;; PRIMARY:      (table $0 5 funcref)
+
+ ;; PRIMARY:      (elem $0 (i32.const 0) $placeholder_0 $placeholder_1 $placeholder_2 $placeholder_3 $placeholder_4)
+
+ ;; PRIMARY:      (export "table" (table $0))
+
  ;; PRIMARY:      (func $use-funcs
- ;; PRIMARY-NEXT:  (call $data.drop)
- ;; PRIMARY-NEXT:  (call $memory.init)
- ;; PRIMARY-NEXT:  (call $array.new_data)
- ;; PRIMARY-NEXT:  (call $array.new_elem)
  ;; PRIMARY-NEXT:  (call_indirect (type $0)
  ;; PRIMARY-NEXT:   (i32.const 0)
+ ;; PRIMARY-NEXT:  )
+ ;; PRIMARY-NEXT:  (call_indirect (type $0)
+ ;; PRIMARY-NEXT:   (i32.const 1)
+ ;; PRIMARY-NEXT:  )
+ ;; PRIMARY-NEXT:  (call_indirect (type $0)
+ ;; PRIMARY-NEXT:   (i32.const 2)
+ ;; PRIMARY-NEXT:  )
+ ;; PRIMARY-NEXT:  (call_indirect (type $0)
+ ;; PRIMARY-NEXT:   (i32.const 3)
+ ;; PRIMARY-NEXT:  )
+ ;; PRIMARY-NEXT:  (call_indirect (type $0)
+ ;; PRIMARY-NEXT:   (i32.const 4)
  ;; PRIMARY-NEXT:  )
  ;; PRIMARY-NEXT: )
  (func $use-funcs
