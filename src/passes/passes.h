@@ -145,6 +145,7 @@ Pass* createRemoveImportsPass();
 Pass* createRemoveMemoryInitPass();
 Pass* createRemoveStartPass();
 Pass* createRemoveUnusedBrsPass();
+Pass* createRemoveJSUncalledPass();
 Pass* createRemoveUnusedModuleElementsPass();
 Pass* createRemoveUnusedNonFunctionModuleElementsPass();
 Pass* createRemoveUnusedNamesPass();

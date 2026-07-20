@@ -118,6 +118,7 @@ set(passes_SOURCES
   RemoveRelaxedSIMD.cpp
   RemoveUnusedBrs.cpp
   RemoveUnusedNames.cpp
+  RemoveJSUncalled.cpp
   RemoveUnusedModuleElements.cpp
   RemoveUnusedTypes.cpp
   ReorderFunctions.cpp

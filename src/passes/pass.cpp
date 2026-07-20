@@ -441,6 +441,9 @@ void PassRegistry::registerPasses() {
   registerPass("remove-unused-brs",
                "removes breaks from locations that are not needed",
                createRemoveUnusedBrsPass);
+  registerPass("remove-js-uncalled",
+               "removes elements that are not js-called",
+               createRemoveJSUncalledPass);
   registerPass("remove-unused-module-elements",
                "removes unused module elements",
                createRemoveUnusedModuleElementsPass);
